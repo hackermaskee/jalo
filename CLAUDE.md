@@ -53,3 +53,10 @@ jalo aims for jq compatibility: a jq program can be parsed into a JSON model AST
 - jq-based test framework
 - Test cases validated against existing jq implementations (C and Jackson-based)
 - Gradually expand passing test cases for jalo's jq-compatible subset
+
+## Document Maintenance
+
+### ISSUES.md
+`ISSUES.md` tracks open and resolved design issues. When a design question is settled (e.g., a decision is recorded in `SPEC.md`), update the corresponding entry in `ISSUES.md`:
+- Change `**状態**: 未定義` / `**状態**: 未設計` / `**状態**: 未定` / `**状態**: 要確認` → `**状態**: 解決済み`
+- Replace the issue body with a one-line summary of the decision and a pointer to where it is documented (e.g., `SPEC.md §X.Y`).
