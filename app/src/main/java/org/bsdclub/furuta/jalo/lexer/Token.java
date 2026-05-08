@@ -1,4 +1,4 @@
-package jalo.lexer;
+package org.bsdclub.furuta.jalo.lexer;
 
 public sealed interface Token permits
     Token.NumberDouble, Token.NumberInt, Token.NumberLong,

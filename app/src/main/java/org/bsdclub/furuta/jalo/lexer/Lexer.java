@@ -1,4 +1,4 @@
-package jalo.lexer;
+package org.bsdclub.furuta.jalo.lexer;
 
 import java.util.ArrayList;
 import java.util.List;

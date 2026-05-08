@@ -1,4 +1,4 @@
-package jalo.lexer;
+package org.bsdclub.furuta.jalo.lexer;
 
 public final class LexerException extends RuntimeException {
     private final int line;
