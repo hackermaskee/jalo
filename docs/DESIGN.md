@@ -191,3 +191,64 @@ assertThatThrownBy(() -> evaluator.eval(expr_without_handler))
 | §4.4 第1版制約注釈 (旧行 275) | §2 重要な設計判断 | 静的解析 Phase 1 制約 |
 | SPEC.md §7 Paguro (旧行 288) | §2.4 Paguro 採用 | immutable DS |
 | §5.2 backquote 注釈 (旧行 614) | §2.3 パターン処理 | 第1版スペシャルフォーム実装 |
+
+## §7 パッケージ規約 (Package Namespace Convention)
+
+### 7.1 Top-level namespace
+
+jalo の全 Java ソースは `org.bsdclub.furuta.jalo` を起点とする。
+
+```
+org.bsdclub.furuta.jalo          ← CLI/REPL エントリポイント (App.java 等)
+org.bsdclub.furuta.jalo.lexer    ← 字句解析器 (Lexer/Token/LexerException)
+org.bsdclub.furuta.jalo.parser   ← 構文解析器 (Parser/AST ノード群)
+org.bsdclub.furuta.jalo.ast      ← AST 定義 (Node sealed hierarchy)
+org.bsdclub.furuta.jalo.typecheck ← 型検査器
+org.bsdclub.furuta.jalo.evaluator ← 評価器 (代数的エフェクト含む)
+org.bsdclub.furuta.jalo.runtime  ← ランタイム環境
+org.bsdclub.furuta.jalo.stdlib   ← 標準ライブラリ
+```
+
+**根拠**: `org.bsdclub.furuta` は殿の所有ドメイン (furuta@furuta.bsdclub.org) に基づく
+Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェクトの artifact ID。
+
+### 7.2 サブパッケージ命名指針
+
+各サブパッケージは §1 アーキテクチャ のレイヤ定義と一対一に対応する:
+
+| サブパッケージ | 対応レイヤ (§1) | 主要クラス例 |
+|---------|---------|---------|
+| lexer | 字句解析 (Lexer) | Lexer, Token, LexerException |
+| parser | 構文解析 (Parser) | Parser |
+| ast | 抽象構文木 | Node (sealed), Expr, Stmt |
+| typecheck | 型検査 | TypeChecker |
+| evaluator | 評価器 | Evaluator, JaloSignal |
+| runtime | ランタイム | Environment, CallStack |
+| stdlib | 標準ライブラリ | StdLib, BuiltinFn |
+
+### 7.3 test source set
+
+テストは main と同一パッケージに配置する:
+
+```
+app/src/main/java/org/bsdclub/furuta/jalo/lexer/Lexer.java
+app/src/test/java/org/bsdclub/furuta/jalo/lexer/LexerTest.java
+```
+
+テストフレームワーク: JUnit 5 (Jupiter) + AssertJ (§5.2 参照)。
+
+### 7.4 新規モジュール追加時のチェックリスト
+
+新しいサブパッケージ (`parser` 等) を追加する際は以下を確認:
+
+- [ ] サブパッケージ名が §7.1 の命名指針に従っているか
+- [ ] `app/src/main/java/org/bsdclub/furuta/jalo/<name>/` を作成したか
+- [ ] `app/src/test/java/org/bsdclub/furuta/jalo/<name>/` を作成したか
+- [ ] §1 アーキテクチャ のレイヤ表に対応関係を記載したか
+
+### 7.5 既存実装との対応
+
+**cmd_397 Lexer** が本規約の初適用例:
+- `org.bsdclub.furuta.jalo.lexer.Lexer` — `List<Token> tokenize(String input)`
+- `org.bsdclub.furuta.jalo.lexer.Token` — sealed interface + 21 record subtypes
+- `org.bsdclub.furuta.jalo.lexer.LexerException` — RuntimeException + line/col

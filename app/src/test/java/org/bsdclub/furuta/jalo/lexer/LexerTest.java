@@ -1,4 +1,4 @@
-package jalo.lexer;
+package org.bsdclub.furuta.jalo.lexer;
 
 import org.junit.jupiter.api.Test;
 
