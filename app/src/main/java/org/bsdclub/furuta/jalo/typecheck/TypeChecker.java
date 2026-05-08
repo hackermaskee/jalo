@@ -32,6 +32,7 @@ public final class TypeChecker {
 
         return switch (op.value()) {
             case "quote" -> checkQuote(array, scope);
+            case "backquote" -> checkBackquote(array, scope);
             case "if" -> checkIf(array, scope);
             case "def" -> checkDef(array, scope);
             case "declare" -> checkDeclare(array, scope);
@@ -61,6 +62,112 @@ public final class TypeChecker {
             throw new TypeCheckException("Wrong arity for quote: " + form);
         }
         return scope;
+    }
+
+    private Scope checkBackquote(JsonArray form, Scope scope) {
+        if (form.size() != 2) {
+            throw new TypeCheckException("Wrong arity for backquote: " + form);
+        }
+        checkPattern(form.get(1));
+        return scope;
+    }
+
+    private void checkPattern(JsonValue node) {
+        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+            return;
+        }
+
+        switch (op.value()) {
+            case "dollar" -> checkDollar(array);
+            case "at" -> checkAt(array);
+            case "percent" -> checkPercent(array);
+            case "array" -> checkPatternArray(array);
+            case "map" -> checkPatternMap(array);
+            default -> {
+                for (int i = 1; i < array.size(); i++) {
+                    checkPattern(array.get(i));
+                }
+            }
+        }
+    }
+
+    private void checkDollar(JsonArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+            throw new TypeCheckException("Pattern: dollar followed by non-variable: " + form);
+        }
+    }
+
+    private void checkAt(JsonArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+            throw new TypeCheckException("Pattern: at followed by non-variable: " + form);
+        }
+    }
+
+    private void checkPercent(JsonArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+            throw new TypeCheckException("Pattern: percent followed by non-variable: " + form);
+        }
+    }
+
+    private void checkPatternArray(JsonArray form) {
+        int atCount = 0;
+        for (int i = 1; i < form.size(); i++) {
+            JsonValue child = form.get(i);
+            if (child instanceof JsonArray childArray
+                    && childArray.size() > 0
+                    && childArray.get(0) instanceof JsonString op
+                    && "at".equals(op.value())) {
+                atCount++;
+            }
+            checkPattern(child);
+        }
+        if (atCount > 1) {
+            throw new TypeCheckException("Pattern: multiple 'at' in array: " + form);
+        }
+    }
+
+    private void checkPatternMap(JsonArray form) {
+        int percentCount = 0;
+        for (int i = 1; i < form.size(); i++) {
+            JsonValue child = form.get(i);
+            if (child instanceof JsonArray childArray && childArray.size() > 0 && childArray.get(0) instanceof JsonString op) {
+                if ("percent".equals(op.value())) {
+                    percentCount++;
+                    checkPattern(child);
+                    continue;
+                }
+            }
+
+            if (isDollarKeyEntry(child)) {
+                throw new TypeCheckException("Pattern: dollar key not allowed in map: " + form);
+            }
+            checkPattern(child);
+        }
+        if (percentCount > 1) {
+            throw new TypeCheckException("Pattern: multiple 'percent' in map: " + form);
+        }
+    }
+
+    private boolean isDollarKeyEntry(JsonValue node) {
+        if (!(node instanceof JsonArray array) || array.size() == 0) {
+            return false;
+        }
+
+        if (isDollarForm(array.get(0))) {
+            return true;
+        }
+
+        if (array.size() == 1 && array.get(0) instanceof JsonArray nested) {
+            return isDollarKeyEntry(nested);
+        }
+        return false;
+    }
+
+    private boolean isDollarForm(JsonValue node) {
+        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+            return false;
+        }
+        return "dollar".equals(op.value());
     }
 
     private Scope checkIf(JsonArray form, Scope scope) {
