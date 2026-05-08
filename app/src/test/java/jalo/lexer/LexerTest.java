@@ -19,6 +19,8 @@ class LexerTest {
     @Test void step7_exponent() { assertThat(lexer.tokenize("1e3")).isEqualTo(List.of(new Token.NumberDouble(1000.0, 1, 1), new Token.Eof(1, 4))); }
     @Test void step8_negative() { assertThat(lexer.tokenize("-5")).isEqualTo(List.of(new Token.NumberDouble(-5.0, 1, 1), new Token.Eof(1, 3))); }
     @Test void step9_leadingZeroError() { assertThatThrownBy(() -> lexer.tokenize("01")).isInstanceOf(LexerException.class).hasMessageContaining("leading zero"); }
+    @Test void step9b_emptyFraction() { assertThatThrownBy(() -> lexer.tokenize("1.")).isInstanceOf(LexerException.class).hasMessageContaining("invalid number"); }
+    @Test void step9c_emptyExponent() { assertThatThrownBy(() -> lexer.tokenize("1e")).isInstanceOf(LexerException.class).hasMessageContaining("invalid exponent"); }
     @Test void step10_intSuffix() { assertThat(lexer.tokenize("42i")).isEqualTo(List.of(new Token.NumberInt(42, 1, 1), new Token.Eof(1, 4))); }
     @Test void step11_longSuffix() { assertThat(lexer.tokenize("42l")).isEqualTo(List.of(new Token.NumberLong(42L, 1, 1), new Token.Eof(1, 4))); }
     @Test void step12_nullLiteral() { assertThat(lexer.tokenize("#null")).isEqualTo(List.of(new Token.Null(1, 1), new Token.Eof(1, 6))); }
@@ -29,6 +31,7 @@ class LexerTest {
     @Test void step17_stringEmpty() { assertThat(lexer.tokenize("\"\"")).isEqualTo(List.of(new Token.Str("", 1, 1), new Token.Eof(1, 3))); }
     @Test void step18_stringEscape() { assertThat(lexer.tokenize("\"a\\nb\"")).isEqualTo(List.of(new Token.Str("a\nb", 1, 1), new Token.Eof(1, 7))); }
     @Test void step19_unterminatedString() { assertThatThrownBy(() -> lexer.tokenize("\"abc")).isInstanceOf(LexerException.class).hasMessageContaining("unterminated string"); }
+    @Test void step19b_invalidEscape() { assertThatThrownBy(() -> lexer.tokenize("\"\\q\"")).isInstanceOf(LexerException.class).hasMessageContaining("invalid escape"); }
     @Test void step20_identifierAlpha() { assertThat(lexer.tokenize("foo")).isEqualTo(List.of(new Token.Identifier("foo", 1, 1), new Token.Eof(1, 4))); }
     @Test void step21_identifierQuote() { assertThat(lexer.tokenize("foo'")).isEqualTo(List.of(new Token.Identifier("foo'", 1, 1), new Token.Eof(1, 5))); }
     @Test void step22_identifierOperator() { assertThat(lexer.tokenize("+")).isEqualTo(List.of(new Token.Identifier("+", 1, 1), new Token.Eof(1, 2))); }
