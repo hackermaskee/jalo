@@ -8,8 +8,8 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 
 | レイヤ | 主責務 | 出力 |
 |---|---|---|
-| Parser | JSON/YAML/標準構文の構文解析 | AST |
-| AST | 言語中間表現の保持 | 正規化 AST |
+| Parser | JSON/YAML/標準構文の構文解析 | JSON モデル |
+| JSON モデル | 言語中間表現 (JsonValue 階層) の保持 | 正規化 JSON モデル |
 | Type / Validation | 型検査・静的検証（将来含む） | 検証済み AST |
 | Evaluator | 実行時評価 (Phase 1) | 値 / エフェクト |
 | Runtime | 環境・束縛・例外/エフェクト制御 | 実行コンテキスト |
@@ -50,6 +50,11 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 - 出所: 旧 `SPEC.md §7.2`
 - 判断: Phase 1 から immutable collection を前提にランタイムを構築する。
 - 理由: 言語の純粋関数型方針と整合。
+- 採用バージョン: 3.10.3 (Maven Central、cmd_400 で確定)
+- 主要用途:
+  - JsonArray の内部 collection: `PersistentVector<JsonValue>`
+  - JsonObject の内部 collection: `PersistentHashMap<String, JsonValue>`
+- ライセンス: Eclipse Public License v1.0 + Apache License 2.0
 
 ### 2.5 JVM 例外機構設計 (JaloSignal)
 
@@ -102,12 +107,13 @@ Phase 1 完成に向けた推奨順序:
 
 想定ディレクトリ (`app/`)：
 
-- `parser/` — 字句解析・構文解析 (JSON/YAML/標準構文)
-- `ast/` — AST 定義 (JSON モデル表現)
+- `parser/` — 構文解析 (JSON/YAML/標準構文)
+- `lexer/` — 字句解析
+- `json/` — JSON モデル定義 (JsonValue 階層)
 - `evaluator/` — ツリー歩行評価器
 - `runtime/` — 環境・束縛・エフェクト機構
 - `stdlib/` — 組み込み関数・jq 互換ライブラリ
-- `test/` — テストフレームワーク
+- `typecheck/` — 型検査器
 
 ## 5. テスト戦略
 
@@ -201,8 +207,8 @@ jalo の全 Java ソースは `org.bsdclub.furuta.jalo` を起点とする。
 ```
 org.bsdclub.furuta.jalo          ← CLI/REPL エントリポイント (App.java 等)
 org.bsdclub.furuta.jalo.lexer    ← 字句解析器 (Lexer/Token/LexerException)
-org.bsdclub.furuta.jalo.parser   ← 構文解析器 (Parser/AST ノード群)
-org.bsdclub.furuta.jalo.ast      ← AST 定義 (Node sealed hierarchy)
+org.bsdclub.furuta.jalo.parser   ← 構文解析器 (Parser/ParserException)
+org.bsdclub.furuta.jalo.json     ← JSON モデル定義 (JsonValue sealed hierarchy)
 org.bsdclub.furuta.jalo.typecheck ← 型検査器
 org.bsdclub.furuta.jalo.evaluator ← 評価器 (代数的エフェクト含む)
 org.bsdclub.furuta.jalo.runtime  ← ランタイム環境
@@ -219,8 +225,8 @@ Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェ�
 | サブパッケージ | 対応レイヤ (§1) | 主要クラス例 |
 |---------|---------|---------|
 | lexer | 字句解析 (Lexer) | Lexer, Token, LexerException |
-| parser | 構文解析 (Parser) | Parser |
-| ast | 抽象構文木 | Node (sealed), Expr, Stmt |
+| parser | 構文解析 (Token → JSON モデル変換) | Parser, ParserException |
+| json | JSON モデル AST | JsonValue (sealed), JsonNull, JsonBool, JsonNumber, JsonString, JsonArray, JsonObject |
 | typecheck | 型検査 | TypeChecker |
 | evaluator | 評価器 | Evaluator, JaloSignal |
 | runtime | ランタイム | Environment, CallStack |
