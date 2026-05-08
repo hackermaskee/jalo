@@ -112,7 +112,7 @@ exponent  = ("e" / "E") [ "+" / "-" ] 1*DIGIT
 int  <  long  <  double
 ```
 
-例: `(+ 1i 2l)` → `long`、`(+ 1i 2.0)` → `double`。実装上、各算術演算子は `int` 版・`long` 版・`double` 版を個別に持ち、オペランドの型に応じて選択する。
+例: `(+ 1i 2l)` → `long`、`(+ 1i 2.0)` → `double`。
 
 ##### 数値変換プリミティブ
 
@@ -214,7 +214,7 @@ jalo は **Lisp1** である。関数と変数は同一のスコープに存在�
 
 #### 引数の評価順序
 
-関数適用における引数の評価順序は**仕様上は不定**とする。フェーズ 1 ツリー歩行インタプリタの実装では左から右の順に評価する。
+関数適用における引数の評価順序は**仕様上は不定**とする。
 
 ### 4.2 スペシャルフォーム
 
@@ -272,7 +272,7 @@ jalo は **Lisp1** である。関数と変数は同一のスコープに存在�
 ```
 名前を「宣言済み」として登録するが、値は与えない。コンパイル時・静的解析時に「定義されていない名前への参照」エラーを抑制するために使う。実行時に `declare` のみで `def` されていない名前を参照した場合は動的エラーとなる。主に相互再帰する `def` をインクリメンタルに宣言する際に使用する。
 
-フェーズ 1 ツリー歩行インタプリタでは静的解析フェーズがないため、`declare` は評価時に対象の名前を「値なし・未定義」状態でグローバル環境に登録する動的な操作として実装する。
+
 
 ```
 ; 例: 相互再帰を REPL でインクリメンタルに定義する
@@ -285,7 +285,6 @@ jalo は **Lisp1** である。関数と変数は同一のスコープに存在�
 
 - 一度束縛された変数への再代入はできない
 - 生成されたデータはすべて immutable
-- immutable データ実装には **Paguro** ライブラリを使用
 
 ### 4.4 エフェクト機構
 
@@ -340,216 +339,212 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
   ["break/out" _ #null])
 ```
 
-#### 第 1 版の制約
+#### 第1版の制約 (言語仕様)
 
 - abort-only: `raise` した時点でスタックは破棄され、ハンドラから中断地点に戻ることはできない。
 - `handle` はスペシャルフォーム (ハンドラ節は遅延評価)。
-- JVM 実装: スタックトレースを生成しない `Throwable` サブクラス `JaloSignal(tag, value)` を使ったタグ付き例外として実装する。
 
 ### 4.5 組み込み関数
 
 組み込み関数はスペシャルフォームではなく通常の関数として評価される。
 
-以下の表で **区分** は次を表す:
-- **P** — JVM ホスト言語実装が必要なプリミティブ
-- **L** — jalo で記述可能なライブラリ関数
 
 #### 型述語
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `null?` | `(null? x)` | null か | P |
-| `boolean?` | `(boolean? x)` | boolean か | P |
-| `number?` | `(number? x)` | 任意の数値型か | P |
-| `double?` | `(double? x)` | double か | P |
-| `int?` | `(int? x)` | int か | P |
-| `long?` | `(long? x)` | long か | P |
-| `string?` | `(string? x)` | 文字列か | P |
-| `array?` | `(array? x)` | 配列か | P |
-| `map?` | `(map? x)` | マップか | P |
-| `fn?` | `(fn? x)` | 関数か | P |
-| `type` | `(type x)` | 型名を文字列で返す (`"null"` / `"boolean"` / `"double"` / `"int"` / `"long"` / `"string"` / `"array"` / `"map"` / `"fn"`) | P |
-| `boolean` | `(boolean x)` | JavaScript 的真偽値変換: `#null` / `#false` / `0` / `""` / `NaN` / `[]` / `{}` → `#false`、それ以外 → `#true` | P |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `null?` | `(null? x)` | null か |
+| `boolean?` | `(boolean? x)` | boolean か |
+| `number?` | `(number? x)` | 任意の数値型か |
+| `double?` | `(double? x)` | double か |
+| `int?` | `(int? x)` | int か |
+| `long?` | `(long? x)` | long か |
+| `string?` | `(string? x)` | 文字列か |
+| `array?` | `(array? x)` | 配列か |
+| `map?` | `(map? x)` | マップか |
+| `fn?` | `(fn? x)` | 関数か |
+| `type` | `(type x)` | 型名を文字列で返す (`"null"` / `"boolean"` / `"double"` / `"int"` / `"long"` / `"string"` / `"array"` / `"map"` / `"fn"`) |
+| `boolean` | `(boolean x)` | JavaScript 的真偽値変換: `#null` / `#false` / `0` / `""` / `NaN` / `[]` / `{}` → `#false`、それ以外 → `#true` |
 
 #### 算術
 
 混合型演算の昇格順: `int` < `long` < `double` (§2.1 参照)。
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `+` | `(+ x y)` | 加算 | P |
-| `-` | `(- x y)` / `(- x)` | 減算 / 符号反転 | P |
-| `*` | `(* x y)` | 乗算 | P |
-| `/` | `(/ x y)` | 除算 | P |
-| `quot` | `(quot x y)` | 整数商 (ゼロ方向切り捨て) | P |
-| `rem` | `(rem x y)` | 余り (符号は被除数に従う) | P |
-| `mod` | `(mod x y)` | 剰余 (符号は除数に従う) | L |
-| `int` | `(int x)` | 任意の数値を 32 ビット符号付き整数に変換 (§2.1 参照) | P |
-| `long` | `(long x)` | 任意の数値を 64 ビット符号付き整数に変換 (§2.1 参照) | P |
-| `double` | `(double x)` | 任意数値を double に変換 | P |
-| `floor` | `(floor x)` | 床関数 | P |
-| `ceil` | `(ceil x)` | 天井関数 | P |
-| `round` | `(round x)` | 丸め (最近接偶数) | P |
-| `trunc` | `(trunc x)` | ゼロ方向切り捨て | P |
-| `abs` | `(abs x)` | 絶対値 | L |
-| `max` | `(max x y)` | 最大値 | L |
-| `min` | `(min x y)` | 最小値 | L |
-| `pow` | `(pow x y)` | x の y 乗 | P |
-| `sqrt` | `(sqrt x)` | 平方根 | P |
-| `log` | `(log x)` | 自然対数 | P |
-| `exp` | `(exp x)` | 指数関数 | P |
-| `nan?` | `(nan? x)` | NaN か | P |
-| `infinite?` | `(infinite? x)` | 無限大か | P |
-| `pos?` | `(pos? x)` | 正か | L |
-| `neg?` | `(neg? x)` | 負か | L |
-| `zero?` | `(zero? x)` | 零か | L |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `+` | `(+ x y)` | 加算 |
+| `-` | `(- x y)` / `(- x)` | 減算 / 符号反転 |
+| `*` | `(* x y)` | 乗算 |
+| `/` | `(/ x y)` | 除算 |
+| `quot` | `(quot x y)` | 整数商 (ゼロ方向切り捨て) |
+| `rem` | `(rem x y)` | 余り (符号は被除数に従う) |
+| `mod` | `(mod x y)` | 剰余 (符号は除数に従う) |
+| `int` | `(int x)` | 任意の数値を 32 ビット符号付き整数に変換 (§2.1 参照) |
+| `long` | `(long x)` | 任意の数値を 64 ビット符号付き整数に変換 (§2.1 参照) |
+| `double` | `(double x)` | 任意数値を double に変換 |
+| `floor` | `(floor x)` | 床関数 |
+| `ceil` | `(ceil x)` | 天井関数 |
+| `round` | `(round x)` | 丸め (最近接偶数) |
+| `trunc` | `(trunc x)` | ゼロ方向切り捨て |
+| `abs` | `(abs x)` | 絶対値 |
+| `max` | `(max x y)` | 最大値 |
+| `min` | `(min x y)` | 最小値 |
+| `pow` | `(pow x y)` | x の y 乗 |
+| `sqrt` | `(sqrt x)` | 平方根 |
+| `log` | `(log x)` | 自然対数 |
+| `exp` | `(exp x)` | 指数関数 |
+| `nan?` | `(nan? x)` | NaN か |
+| `infinite?` | `(infinite? x)` | 無限大か |
+| `pos?` | `(pos? x)` | 正か |
+| `neg?` | `(neg? x)` | 負か |
+| `zero?` | `(zero? x)` | 零か |
 
 #### 比較
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `=` | `(= x y)` | 等値 (型を区別、NaN ≠ NaN) | P |
-| `not=` | `(not= x y)` | 非等値 | L |
-| `<` | `(< x y)` | 小なり | P |
-| `<=` | `(<= x y)` | 以下 | L |
-| `>` | `(> x y)` | 大なり | L |
-| `>=` | `(>= x y)` | 以上 | L |
-| `compare` | `(compare x y)` | 比較 (負/0/正を返す) | P |
-| `same-value?` | `(same-value? x y)` | `-0` と `+0` を区別する等値 (§2.1 参照) | P |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `=` | `(= x y)` | 等値 (型を区別、NaN ≠ NaN) |
+| `not=` | `(not= x y)` | 非等値 |
+| `<` | `(< x y)` | 小なり |
+| `<=` | `(<= x y)` | 以下 |
+| `>` | `(> x y)` | 大なり |
+| `>=` | `(>= x y)` | 以上 |
+| `compare` | `(compare x y)` | 比較 (負/0/正を返す) |
+| `same-value?` | `(same-value? x y)` | `-0` と `+0` を区別する等値 (§2.1 参照) |
 
 #### 論理
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `not` | `(not x)` | 論理否定 | L |
-| `and` | `(and x y ...)` | 短絡論理積 (スペシャルフォーム) | P |
-| `or` | `(or x y ...)` | 短絡論理和 (スペシャルフォーム) | P |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `not` | `(not x)` | 論理否定 |
+| `and` | `(and x y ...)` | 短絡論理積 (スペシャルフォーム) |
+| `or` | `(or x y ...)` | 短絡論理和 (スペシャルフォーム) |
 
 #### 文字列
 
 文字型はなく、長さ 1 の文字列を文字として代用する。
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `str` | `(str x ...)` | 値の文字列化・連結 | P |
-| `str-count` | `(str-count s)` | 文字列長 (UTF-16 コード単位) | P |
-| `str-get` | `(str-get s i)` | i 番目の文字 (長さ 1 文字列) | P |
-| `subs` | `(subs s start)` / `(subs s start end)` | 部分文字列 | P |
-| `str-index-of` | `(str-index-of s sub)` | 最初の出現位置 (非存在は -1) | P |
-| `str-replace` | `(str-replace s from to)` | 最初のマッチを置換 | P |
-| `str-replace-all` | `(str-replace-all s from to)` | 全マッチを置換 | P |
-| `str-split` | `(str-split s delim)` | デリミタで分割 → 文字列配列 | P |
-| `str-join` | `(str-join sep coll)` | 配列を sep で結合 | P |
-| `str-trim` | `(str-trim s)` | 両端の空白を除去 | P |
-| `str-upper` | `(str-upper s)` | 大文字化 | P |
-| `str-lower` | `(str-lower s)` | 小文字化 | P |
-| `str->number` | `(str->number s)` | 文字列を数値にパース (失敗は null) | P |
-| `char-code` | `(char-code c)` | 長さ 1 文字列の Unicode コードポイント → long | P |
-| `from-char-code` | `(from-char-code n)` | コードポイントから長さ 1 文字列を生成 | P |
-| `chars` | `(chars s)` | 文字列を長さ 1 文字列の配列に分解 | L |
-| `from-chars` | `(from-chars coll)` | 文字配列を文字列に結合 | L |
-| `str-starts-with?` | `(str-starts-with? s prefix)` | 前方一致 | L |
-| `str-ends-with?` | `(str-ends-with? s suffix)` | 後方一致 | L |
-| `str-contains?` | `(str-contains? s sub)` | 部分文字列を含むか | L |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `str` | `(str x ...)` | 値の文字列化・連結 |
+| `str-count` | `(str-count s)` | 文字列長 (UTF-16 コード単位) |
+| `str-get` | `(str-get s i)` | i 番目の文字 (長さ 1 文字列) |
+| `subs` | `(subs s start)` / `(subs s start end)` | 部分文字列 |
+| `str-index-of` | `(str-index-of s sub)` | 最初の出現位置 (非存在は -1) |
+| `str-replace` | `(str-replace s from to)` | 最初のマッチを置換 |
+| `str-replace-all` | `(str-replace-all s from to)` | 全マッチを置換 |
+| `str-split` | `(str-split s delim)` | デリミタで分割 → 文字列配列 |
+| `str-join` | `(str-join sep coll)` | 配列を sep で結合 |
+| `str-trim` | `(str-trim s)` | 両端の空白を除去 |
+| `str-upper` | `(str-upper s)` | 大文字化 |
+| `str-lower` | `(str-lower s)` | 小文字化 |
+| `str->number` | `(str->number s)` | 文字列を数値にパース (失敗は null) |
+| `char-code` | `(char-code c)` | 長さ 1 文字列の Unicode コードポイント → long |
+| `from-char-code` | `(from-char-code n)` | コードポイントから長さ 1 文字列を生成 |
+| `chars` | `(chars s)` | 文字列を長さ 1 文字列の配列に分解 |
+| `from-chars` | `(from-chars coll)` | 文字配列を文字列に結合 |
+| `str-starts-with?` | `(str-starts-with? s prefix)` | 前方一致 |
+| `str-ends-with?` | `(str-ends-with? s suffix)` | 後方一致 |
+| `str-contains?` | `(str-contains? s sub)` | 部分文字列を含むか |
 
 #### 配列 (Clojure ベクタに対応)
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `conj` | `(conj coll x)` | 末尾に追加した新配列 | P |
-| `cons` | `(cons x coll)` | 先頭に追加した新配列 | P |
-| `concat` | `(concat coll ...)` | 複数配列を連結 | P |
-| `subvec` | `(subvec coll start)` / `(subvec coll start end)` | 部分配列 | P |
-| `reverse` | `(reverse coll)` | 逆順 | P |
-| `sort` | `(sort coll)` | 自然順ソート | P |
-| `sort-by` | `(sort-by f coll)` | `f` の結果でソート | L |
-| `map` | `(map f coll)` | 各要素に `f` を適用 | L |
-| `filter` | `(filter pred coll)` | `pred` が真の要素を抽出 | L |
-| `remove` | `(remove pred coll)` | `pred` が偽の要素を抽出 | L |
-| `reduce` | `(reduce f init coll)` | 左畳み込み | L |
-| `reduce-right` | `(reduce-right f init coll)` | 右畳み込み | L |
-| `mapcat` | `(mapcat f coll)` | map + concat (flatMap) | L |
-| `keep` | `(keep f coll)` | map し null を除去 | L |
-| `take` | `(take n coll)` | 先頭 n 件 | L |
-| `drop` | `(drop n coll)` | 先頭 n 件を除いた残り | L |
-| `take-while` | `(take-while pred coll)` | `pred` が真の間、先頭から取得 | L |
-| `drop-while` | `(drop-while pred coll)` | `pred` が真の間、先頭を除外 | L |
-| `partition` | `(partition n coll)` | n 個ずつの部分配列に分割 | L |
-| `partition-by` | `(partition-by f coll)` | `f` の値が変わる境界で分割 | L |
-| `group-by` | `(group-by f coll)` | `f` の値でグループ化 → マップ | L |
-| `frequencies` | `(frequencies coll)` | 各要素の出現回数 → マップ | L |
-| `distinct` | `(distinct coll)` | 重複除去 (順序保持) | L |
-| `flatten` | `(flatten coll)` / `(flatten depth coll)` | ネスト配列を平坦化 | L |
-| `zip` | `(zip coll ...)` | 複数配列を `[x y ...]` ペア配列に | L |
-| `range` | `(range end)` / `(range start end)` / `(range start end step)` | 数値範囲配列 | L |
-| `some` | `(some pred coll)` | いずれかが真か | L |
-| `every?` | `(every? pred coll)` | すべてが真か | L |
-| `not-any?` | `(not-any? pred coll)` | どれも真でないか | L |
-| `min-by` | `(min-by f coll)` | `f` が最小の要素 | L |
-| `max-by` | `(max-by f coll)` | `f` が最大の要素 | L |
-| `index-of` | `(index-of coll x)` | `x` の最初の位置 (非存在は -1) | L |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `conj` | `(conj coll x)` | 末尾に追加した新配列 |
+| `cons` | `(cons x coll)` | 先頭に追加した新配列 |
+| `concat` | `(concat coll ...)` | 複数配列を連結 |
+| `subvec` | `(subvec coll start)` / `(subvec coll start end)` | 部分配列 |
+| `reverse` | `(reverse coll)` | 逆順 |
+| `sort` | `(sort coll)` | 自然順ソート |
+| `sort-by` | `(sort-by f coll)` | `f` の結果でソート |
+| `map` | `(map f coll)` | 各要素に `f` を適用 |
+| `filter` | `(filter pred coll)` | `pred` が真の要素を抽出 |
+| `remove` | `(remove pred coll)` | `pred` が偽の要素を抽出 |
+| `reduce` | `(reduce f init coll)` | 左畳み込み |
+| `reduce-right` | `(reduce-right f init coll)` | 右畳み込み |
+| `mapcat` | `(mapcat f coll)` | map + concat (flatMap) |
+| `keep` | `(keep f coll)` | map し null を除去 |
+| `take` | `(take n coll)` | 先頭 n 件 |
+| `drop` | `(drop n coll)` | 先頭 n 件を除いた残り |
+| `take-while` | `(take-while pred coll)` | `pred` が真の間、先頭から取得 |
+| `drop-while` | `(drop-while pred coll)` | `pred` が真の間、先頭を除外 |
+| `partition` | `(partition n coll)` | n 個ずつの部分配列に分割 |
+| `partition-by` | `(partition-by f coll)` | `f` の値が変わる境界で分割 |
+| `group-by` | `(group-by f coll)` | `f` の値でグループ化 → マップ |
+| `frequencies` | `(frequencies coll)` | 各要素の出現回数 → マップ |
+| `distinct` | `(distinct coll)` | 重複除去 (順序保持) |
+| `flatten` | `(flatten coll)` / `(flatten depth coll)` | ネスト配列を平坦化 |
+| `zip` | `(zip coll ...)` | 複数配列を `[x y ...]` ペア配列に |
+| `range` | `(range end)` / `(range start end)` / `(range start end step)` | 数値範囲配列 |
+| `some` | `(some pred coll)` | いずれかが真か |
+| `every?` | `(every? pred coll)` | すべてが真か |
+| `not-any?` | `(not-any? pred coll)` | どれも真でないか |
+| `min-by` | `(min-by f coll)` | `f` が最小の要素 |
+| `max-by` | `(max-by f coll)` | `f` が最大の要素 |
+| `index-of` | `(index-of coll x)` | `x` の最初の位置 (非存在は -1) |
 
 #### マップ (Clojure マップに対応)
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `keys` | `(keys m)` | キーの配列 | P |
-| `vals` | `(vals m)` | 値の配列 | P |
-| `entries` | `(entries m)` | `[k v]` ペア配列 (jq の `to_entries` 相当) | P |
-| `from-entries` | `(from-entries coll)` | `[k v]` ペア配列からマップを構築 | L |
-| `merge` | `(merge m ...)` | マップをマージ (後勝ち) | L |
-| `merge-with` | `(merge-with f m ...)` | 衝突を `f` で解決するマージ | L |
-| `select-keys` | `(select-keys m keys)` | 指定キーのみのサブマップ | L |
-| `rename-keys` | `(rename-keys m rename-map)` | キーの付け替え | L |
-| `map-keys` | `(map-keys f m)` | 全キーに `f` を適用 | L |
-| `map-vals` | `(map-vals f m)` | 全値に `f` を適用 | L |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `keys` | `(keys m)` | キーの配列 |
+| `vals` | `(vals m)` | 値の配列 |
+| `entries` | `(entries m)` | `[k v]` ペア配列 (jq の `to_entries` 相当) |
+| `from-entries` | `(from-entries coll)` | `[k v]` ペア配列からマップを構築 |
+| `merge` | `(merge m ...)` | マップをマージ (後勝ち) |
+| `merge-with` | `(merge-with f m ...)` | 衝突を `f` で解決するマージ |
+| `select-keys` | `(select-keys m keys)` | 指定キーのみのサブマップ |
+| `rename-keys` | `(rename-keys m rename-map)` | キーの付け替え |
+| `map-keys` | `(map-keys f m)` | 全キーに `f` を適用 |
+| `map-vals` | `(map-vals f m)` | 全値に `f` を適用 |
 
 #### コレクション共通 (配列・マップ両対応)
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `count` | `(count coll)` | 要素数 / エントリ数 | P |
-| `empty?` | `(empty? coll)` | 空か | L |
-| `not-empty` | `(not-empty coll)` | 空なら null、そうでなければ `coll` | L |
-| `nth` | `(nth coll i)` / `(nth coll i default)` | i 番目の要素 | P |
-| `get` | `(get coll key)` / `(get coll key default)` | 配列: インデックス / マップ: キー で取得 | P |
-| `assoc` | `(assoc coll key val ...)` | 配列: インデックス更新 / マップ: キー設定 | P |
-| `dissoc` | `(dissoc m k ...)` | マップからキーを除去 | P |
-| `contains?` | `(contains? coll key)` | 配列: 有効インデックスか / マップ: キーが存在するか | P |
-| `get-in` | `(get-in coll path)` / `(get-in coll path default)` | キーパス (文字列/整数の配列) でネスト取得 | L |
-| `assoc-in` | `(assoc-in coll path val)` | キーパスでネスト更新 | L |
-| `update` | `(update coll key f ...)` | key の値に `f` を適用した新コレクション | L |
-| `update-in` | `(update-in coll path f ...)` | キーパスでネスト更新 | L |
-| `into` | `(into target src)` | `src` の要素を `target` に追加 | L |
-| `first` | `(first coll)` | 最初の要素 | L |
-| `second` | `(second coll)` | 2 番目の要素 | L |
-| `last` | `(last coll)` | 最後の要素 | L |
-| `rest` | `(rest coll)` | 先頭以外の配列 | L |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `count` | `(count coll)` | 要素数 / エントリ数 |
+| `empty?` | `(empty? coll)` | 空か |
+| `not-empty` | `(not-empty coll)` | 空なら null、そうでなければ `coll` |
+| `nth` | `(nth coll i)` / `(nth coll i default)` | i 番目の要素 |
+| `get` | `(get coll key)` / `(get coll key default)` | 配列: インデックス / マップ: キー で取得 |
+| `assoc` | `(assoc coll key val ...)` | 配列: インデックス更新 / マップ: キー設定 |
+| `dissoc` | `(dissoc m k ...)` | マップからキーを除去 |
+| `contains?` | `(contains? coll key)` | 配列: 有効インデックスか / マップ: キーが存在するか |
+| `get-in` | `(get-in coll path)` / `(get-in coll path default)` | キーパス (文字列/整数の配列) でネスト取得 |
+| `assoc-in` | `(assoc-in coll path val)` | キーパスでネスト更新 |
+| `update` | `(update coll key f ...)` | key の値に `f` を適用した新コレクション |
+| `update-in` | `(update-in coll path f ...)` | キーパスでネスト更新 |
+| `into` | `(into target src)` | `src` の要素を `target` に追加 |
+| `first` | `(first coll)` | 最初の要素 |
+| `second` | `(second coll)` | 2 番目の要素 |
+| `last` | `(last coll)` | 最後の要素 |
+| `rest` | `(rest coll)` | 先頭以外の配列 |
 
 #### 高階関数
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `apply` | `(apply f args)` | 配列を引数として `f` を適用 | P |
-| `comp` | `(comp f g ...)` | 関数合成 (右から左) | L |
-| `partial` | `(partial f x ...)` | 部分適用 | L |
-| `identity` | `(identity x)` | 恒等関数 | L |
-| `constantly` | `(constantly x)` | 常に `x` を返す関数 | L |
-| `complement` | `(complement f)` | `f` の論理否定を返す関数 | L |
-| `juxt` | `(juxt f g ...)` | 各関数を同一引数に適用した結果配列を返す関数 | L |
-| `memoize` | `(memoize f)` | `f` のメモ化版を返す (組み込みのみ; 下記注) | P |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `apply` | `(apply f args)` | 配列を引数として `f` を適用 |
+| `comp` | `(comp f g ...)` | 関数合成 (右から左) |
+| `partial` | `(partial f x ...)` | 部分適用 |
+| `identity` | `(identity x)` | 恒等関数 |
+| `constantly` | `(constantly x)` | 常に `x` を返す関数 |
+| `complement` | `(complement f)` | `f` の論理否定を返す関数 |
+| `juxt` | `(juxt f g ...)` | 各関数を同一引数に適用した結果配列を返す関数 |
+| `memoize` | `(memoize f)` | `f` のメモ化版を返す (組み込みのみ; 下記注) |
 
 `memoize` は JVM 内部の HashMap を用いた組み込み実装のみ提供する。jalo は純粋関数型言語であり可変状態をユーザーが直接作成する手段を持たないため、ユーザー定義のメモ化機構は提供しない。
 
 #### JSON・I/O
 
-| 名前 | シグネチャ | 説明 | 区分 |
-|------|-----------|------|------|
-| `to-json` | `(to-json x)` | jalo 値を JSON テキストに変換 | P |
-| `from-json` | `(from-json s)` | JSON テキストを jalo 値にパース | P |
-| `print` | `(print x)` | 標準出力に出力 | P |
-| `println` | `(println x)` | 標準出力に出力 + 改行 | L |
-| `read-line` | `(read-line)` | 標準入力から 1 行読み込み → 文字列 | P |
+| 名前 | シグネチャ | 説明 |
+|------|-----------|------|
+| `to-json` | `(to-json x)` | jalo 値を JSON テキストに変換 |
+| `from-json` | `(from-json s)` | JSON テキストを jalo 値にパース |
+| `print` | `(print x)` | 標準出力に出力 |
+| `println` | `(println x)` | 標準出力に出力 + 改行 |
+| `read-line` | `(read-line)` | 標準入力から 1 行読み込み → 文字列 |
 
 #### jq 互換ライブラリとの対応
 
@@ -678,7 +673,7 @@ JSON モデル上での表現:
   `$_          (error "unexpected value"))
 ```
 
-### 5.5 パーサーの動作
+### 5.5 標準構文のバッククオート構文の AST 変換規則
 
 標準構文パーサーは `` ` `` (バッククオート) を読んだ後、**パターン構文モード**に切り替わる。
 
@@ -702,42 +697,3 @@ jalo は jq との互換性を付加価値として持つ。
 - すべての jq 機能を網羅する必要はなく、代表的なフィルタ機能を優先する
 - jq プリミティブは jalo ビルトインでなく、jalo で定義されたライブラリとして実装してよい
 - jq 構文上の多義的記号 (例: `[]`) は、AST 上では別ノードとして区別する
-
----
-
-## 7. 実装
-
-### 7.1 フェーズ
-
-1. **フェーズ 1**: ツリー歩行インタプリタ
-2. **フェーズ 2**: JVM バイトコードコンパイラ (REPL 対応を維持)
-
-### 7.2 データ構造
-
-immutable データ構造の実装に **Paguro** ライブラリを使用する。
-
-### 7.3 REPL
-
-#### セッション状態
-
-REPL セッションは単一のグローバル環境を保持する。`def` で定義した名前はセッションが終了するまで存在し続ける。
-
-#### `def` の再定義 (シャドウ方式)
-
-REPL で同一名に対して `def` を複数回実行した場合、後の定義が前の定義を**シャドウ**する。内部的には環境を書き換えるのではなく、新しいバインディングを重ねることで実現する。これにより言語の不変性原則を維持しつつ、対話的な開発を支援する。
-
-#### 未定義名の参照エラー
-
-コンパイル時・静的解析時に `def` も `declare` もされていない名前への参照はエラーとする。`declare` のみで `def` されていない名前への参照は実行時に動的エラーとなる。
-
-#### フェーズ 2 以降のコンパイラとの統合
-
-フェーズ 2 (JVM バイトコードコンパイラ) 移行後も REPL は維持する。REPL に入力された式を逐次コンパイルして新しい JVM クラスとして生成しロードする (Clojure 方式)。
-
----
-
-## 8. テスト戦略
-
-- jq ベースのテストフレームワークを用意する
-- テストケースは既存の jq 実装 (C 実装 および Jackson ベース実装) で妥当性を検証する
-- jalo の jq 互換機能をそのテストケースで検証し、通過するケースを段階的に増やす
