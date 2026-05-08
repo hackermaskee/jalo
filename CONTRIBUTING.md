@@ -45,6 +45,16 @@ bash scripts/inbox_write.sh karo "PR review 完了: APPROVE / CHANGES_REQUESTED,
 bash scripts/inbox_write.sh ashigaru<N> "PR merged: feature/cmd-NNN-foo → main" merge_done karo
 ```
 
+## 3.5 commit 命名規約 (TDD サイクル対応)
+TDD サイクルに対応した Conventional Commits 準拠の prefix を使用する:
+- `test(red): <description>` - 失敗テスト追加 (Red commit)
+- `feat(green): <description>` - 最小実装でテスト通過 (Green commit)
+- `refactor: <description>` - リファクタリング (Refactor commit)
+
+squash merge 前の feature branch でこの prefix が付いていれば、
+軍師が `gh pr view --json commits` で TDD 遵守を機械的に確認可能。
+適用範囲: コアロジック PR (設定・ビルド PR は通常の commit 命名を使用)。
+
 ## 4. マージ方式
 - Default: Squash merge（家老が `gh pr merge --squash` を実施）
 - 理由: 足軽の WIP commit を整理し、`main` の履歴を clean に保つ
@@ -73,6 +83,9 @@ git push / gh pr create / merge を代行します。
 
 3. 受入基準充足 (Checking)
 - 表面的網羅ではなく、実質達成できているか
+- **TDD チェックリスト** (コアロジック PR): テストファースト / Green commit 独立 /
+  commit 命名規約 (`test(red)`/`feat(green)`/`refactor:`) の遵守を確認
+  (設定・ビルド PR は N/A 可)
 
 4. アーキテクチャ一貫性 (Organizing)
 - 既存資産との整合、命名規約の一貫性が保たれているか
