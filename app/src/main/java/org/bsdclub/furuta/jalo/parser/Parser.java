@@ -35,7 +35,95 @@ public final class Parser {
     }
 
     public JsonValue parseStandard(List<Token> tokens) {
-        throw new UnsupportedOperationException("STANDARD mode: implemented in PR-C");
+        this.tokens = tokens;
+        this.index = 0;
+        JsonValue value = parseStandardValue();
+        if (!(peek() instanceof Token.Eof)) {
+            Token token = peek();
+            throw new ParserException("Unexpected token after standard value", token.line(), token.col());
+        }
+        return value;
+    }
+
+    private JsonValue parseStandardValue() {
+        Token token = peek();
+        return switch (token) {
+            case Token.Null t -> { advance(); yield JsonNull.INSTANCE; }
+            case Token.True t -> { advance(); yield JsonBool.TRUE; }
+            case Token.False t -> { advance(); yield JsonBool.FALSE; }
+            case Token.NumberDouble t -> { advance(); yield new JsonNumber(t.value()); }
+            case Token.NumberInt t -> {
+                advance();
+                yield JsonArray.of(new JsonString("int"), new JsonNumber(t.value()));
+            }
+            case Token.NumberLong t -> {
+                advance();
+                yield JsonArray.of(new JsonString("long"), new JsonNumber(t.value()));
+            }
+            case Token.Str t -> { advance(); yield new JsonString(t.value()); }
+            case Token.Identifier t -> { advance(); yield new JsonString(t.name()); }
+            case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]");
+            case Token.LParen t -> parseStandardArray(Token.LParen.class, Token.RParen.class, ")");
+            case Token.LBrace t -> parseStandardObject();
+            case Token.Eof t -> throw new ParserException("Unexpected EOF", t.line(), t.col());
+            default -> throw new ParserException("Unexpected token", token.line(), token.col());
+        };
+    }
+
+    private JsonArray parseStandardArray(Class<? extends Token> leftType, Class<? extends Token> rightType, String right) {
+        expect(leftType, "Expected array opener");
+        JsonArray arr = JsonArray.empty();
+        while (true) {
+            Token token = peek();
+            if (rightType.isInstance(token)) {
+                advance();
+                return arr;
+            }
+            if (token instanceof Token.Eof eof) {
+                throw new ParserException("Unexpected EOF: expected '" + right + "'", eof.line(), eof.col());
+            }
+            arr = arr.append(parseStandardValue());
+            if (peek() instanceof Token.Comma) {
+                advance();
+            }
+        }
+    }
+
+    private JsonObject parseStandardObject() {
+        expect(Token.LBrace.class, "Expected '{'");
+        JsonObject obj = JsonObject.empty();
+        while (true) {
+            Token token = peek();
+            if (token instanceof Token.RBrace) {
+                advance();
+                return obj;
+            }
+            if (token instanceof Token.Eof eof) {
+                throw new ParserException("Unexpected EOF: expected '}'", eof.line(), eof.col());
+            }
+
+            String key = switch (token) {
+                case Token.Identifier id -> {
+                    advance();
+                    yield id.name();
+                }
+                case Token.Str str -> {
+                    advance();
+                    yield str.value();
+                }
+                default -> throw new ParserException("Expected object key", token.line(), token.col());
+            };
+
+            Token colon = peek();
+            if (!(colon instanceof Token.Colon)) {
+                throw new ParserException("Expected ':' after key", colon.line(), colon.col());
+            }
+            advance();
+            obj = obj.put(key, parseStandardValue());
+            if (peek() instanceof Token.Comma) {
+                advance();
+            }
+        }
     }
 
     private JsonValue parseValue() {
