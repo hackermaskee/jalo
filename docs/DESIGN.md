@@ -107,7 +107,7 @@ Phase 1 完成に向けた推奨順序:
 
 想定ディレクトリ (`app/`)：
 
-- `parser/` — 字句解析・構文解析 (JSON/YAML/標準構文)
+- `parser/` — 構文解析 (JSON/YAML/標準構文)
 - `lexer/` — 字句解析
 - `json/` — JSON モデル定義 (JsonValue 階層)
 - `evaluator/` — ツリー歩行評価器
