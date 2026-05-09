@@ -20,10 +20,10 @@ public final class JaloFunction implements JaloValue {
 
     public JaloValue apply(List<JaloValue> args, Evaluator evaluator) {
         if (restParam == null && args.size() != params.size()) {
-            throw new JaloEffectSignal("error", "Arity mismatch");
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Arity mismatch"));
         }
         if (restParam != null && args.size() < params.size()) {
-            throw new JaloEffectSignal("error", "Arity mismatch");
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Arity mismatch"));
         }
 
         Environment env = closure;
@@ -35,7 +35,7 @@ public final class JaloFunction implements JaloValue {
             for (int i = params.size(); i < args.size(); i++) {
                 JaloValue v = args.get(i);
                 if (!(v instanceof JsonValue jsonValue)) {
-                    throw new JaloEffectSignal("error", "Non-JSON value in rest args");
+                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Non-JSON value in rest args"));
                 }
                 rest = rest.append(jsonValue);
             }
@@ -51,7 +51,7 @@ public final class JaloFunction implements JaloValue {
 
     public static JaloFunction fromForm(JsonArray fnForm, Environment closure) {
         if (fnForm.size() < 3 || !(fnForm.get(1) instanceof JsonArray paramVec)) {
-            throw new JaloEffectSignal("error", "Malformed fn");
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Malformed fn"));
         }
 
         java.util.ArrayList<String> params = new java.util.ArrayList<>();
@@ -59,11 +59,11 @@ public final class JaloFunction implements JaloValue {
         for (int i = 0; i < paramVec.size(); i++) {
             JsonValue pv = paramVec.get(i);
             if (!(pv instanceof JsonString p)) {
-                throw new JaloEffectSignal("error", "fn params must be identifiers");
+                throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("fn params must be identifiers"));
             }
             if ("&".equals(p.value())) {
                 if (i != paramVec.size() - 2 || !(paramVec.get(i + 1) instanceof JsonString restName)) {
-                    throw new JaloEffectSignal("error", "Malformed fn rest parameter");
+                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Malformed fn rest parameter"));
                 }
                 rest = restName.value();
                 break;

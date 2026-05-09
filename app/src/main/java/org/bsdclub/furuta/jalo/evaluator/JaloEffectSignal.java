@@ -1,20 +1,25 @@
 package org.bsdclub.furuta.jalo.evaluator;
 
 public final class JaloEffectSignal extends RuntimeException {
-    private final String tag;
-    private final String value;
+    private final JaloValue tag;
+    private final JaloValue value;
 
-    public JaloEffectSignal(String tag, String value) {
+    public JaloEffectSignal(JaloValue tag, JaloValue value) {
         super(tag + ": " + value);
         this.tag = tag;
         this.value = value;
     }
 
-    public String tag() {
+    public JaloValue tag() {
         return tag;
     }
 
-    public String value() {
+    public JaloValue value() {
         return value;
+    }
+
+    @Override
+    public synchronized Throwable fillInStackTrace() {
+        return this;
     }
 }
