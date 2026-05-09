@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import org.bsdclub.furuta.jalo.json.JsonBool;
 import org.bsdclub.furuta.jalo.json.JsonNull;
 import org.bsdclub.furuta.jalo.json.JsonNumber;
+import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
 import org.junit.jupiter.api.Test;
@@ -29,8 +30,8 @@ class EvaluatorTest {
             .isInstanceOf(JaloEffectSignal.class)
             .satisfies(ex -> {
                 JaloEffectSignal sig = (JaloEffectSignal) ex;
-                assertThat(sig.tag()).isEqualTo("error");
-                assertThat(sig.value()).isEqualTo("Unbound variable: foo");
+                assertThat(sig.tag()).isEqualTo(new JsonString("error"));
+                assertThat(sig.value()).isEqualTo(new JsonString("Unbound variable: foo"));
             });
     }
 
@@ -47,4 +48,43 @@ class EvaluatorTest {
     @Test void eA10_ifFalseBranch() { assertThat(evaluator.eval(parse("(if #false 1 2)"))).isEqualTo(new JsonNumber(2.0)); }
     @Test void eA11_functionApplicationWithLet() { assertThat(evaluator.eval(parse("(let [f (fn [x] (* x 2))] (f 3))"))).isEqualTo(new JsonNumber(6.0)); }
     @Test void eA12_closureCapturesOuterBinding() { assertThat(evaluator.eval(parse("(let [x 10] ((fn [y] (+ x y)) 5))"))).isEqualTo(new JsonNumber(15.0)); }
+
+    @Test void eB1_handleCatchesMatchingTag() { assertThat(evaluator.eval(parse("(handle (raise (quote x) 1) [(quote x) v v])"))).isEqualTo(new JsonNumber(1.0)); }
+
+    @Test
+    void eB2_raiseWithoutHandlePropagates() {
+        assertThatThrownBy(() -> evaluator.eval(parse("(raise (quote x) 1)")))
+            .isInstanceOf(JaloEffectSignal.class)
+            .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JsonString("x")));
+    }
+
+    @Test
+    void eB3_handleTagMismatchPropagates() {
+        assertThatThrownBy(() -> evaluator.eval(parse("(handle (raise (quote y) 1) [(quote x) v v])")))
+            .isInstanceOf(JaloEffectSignal.class)
+            .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JsonString("y")));
+    }
+
+    @Test void eB4_nestedInnerHandleWins() { assertThat(evaluator.eval(parse("(handle (handle (raise (quote x) 1) [(quote x) v v]) [(quote x) v 999])"))).isEqualTo(new JsonNumber(1.0)); }
+    @Test void eB5_nestedOuterHandleCatchesRethrow() { assertThat(evaluator.eval(parse("(handle (handle (raise (quote y) 1) [(quote x) v v]) [(quote y) v 999])"))).isEqualTo(new JsonNumber(999.0)); }
+    @Test void eB6_errorBuiltinEffectCaught() { assertThat(evaluator.eval(parse("(handle (error (quote msg)) [(quote error) e e])"))).isEqualTo(new JsonString("msg")); }
+    @Test void eB7_unboundVariableRaisedAsErrorEffect() { assertThat(evaluator.eval(parse("(handle foo [(quote error) e e])"))).isEqualTo(new JsonString("Unbound variable: foo")); }
+    @Test void eB8_divisionByZeroRaisedAsErrorEffect() { assertThat(evaluator.eval(parse("(handle (/ 1i 0i) [(quote error) e e])"))).isEqualTo(new JsonString("Division by zero")); }
+
+    @Test
+    void eB9_handleRaisingAnotherSignalPropagates() {
+        assertThatThrownBy(() -> evaluator.eval(parse("(handle (raise (quote x) 1) [(quote x) v (raise (quote y) 2)])")))
+            .isInstanceOf(JaloEffectSignal.class)
+            .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JsonString("y")));
+    }
+
+    @Test void eB10_handleWithLexicalValue() { assertThat(evaluator.eval(parse("(handle (let [x 1] (raise (quote x) x)) [(quote x) v v])"))).isEqualTo(new JsonNumber(1.0)); }
+
+    @Test
+    void letrecVariablesDoNotLeakToGlobal() {
+        assertThat(evaluator.eval(parse("(letrec [hidden 42] hidden)"))).isEqualTo(new JsonNumber(42.0));
+        assertThatThrownBy(() -> evaluator.eval(parse("hidden")))
+            .isInstanceOf(JaloEffectSignal.class)
+            .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JsonString("error")));
+    }
 }

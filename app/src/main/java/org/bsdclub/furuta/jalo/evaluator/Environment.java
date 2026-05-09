@@ -2,6 +2,7 @@ package org.bsdclub.furuta.jalo.evaluator;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.bsdclub.furuta.jalo.json.JsonString;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
 public final class Environment {
@@ -27,21 +28,29 @@ public final class Environment {
         globalBindings.put(name, value);
     }
 
+    public boolean hasGlobal(String name) {
+        return globalBindings.containsKey(name);
+    }
+
+    public JaloValue getGlobal(String name) {
+        return globalBindings.get(name);
+    }
+
+    public void removeGlobal(String name) {
+        globalBindings.remove(name);
+    }
+
     public JaloValue lookup(String name) {
-        JaloValue local = localBindings.get(name);
-        if (local != null) {
+        if (localBindings.containsKey(name)) {
+            JaloValue local = localBindings.get(name);
             return local;
         }
         if (parent != null) {
-            try {
-                return parent.lookup(name);
-            } catch (JaloEffectSignal ignored) {
-                // fall through to globals
-            }
+            return parent.lookup(name);
         }
         if (globalBindings.containsKey(name)) {
             return globalBindings.get(name);
         }
-        throw new JaloEffectSignal("error", "Unbound variable: " + name);
+        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Unbound variable: " + name));
     }
 }
