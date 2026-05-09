@@ -16,12 +16,13 @@ cmd_NNN
 ```
 Result: PASS / FAIL
 
-## TDD 遵守 (適用範囲: コアロジック PR)
-<!-- 設定・ビルド・スクリプト PR は「適用範囲外」を選択 -->
-- [ ] テストファースト: test(red): commit が Green commit より先
-- [ ] Green commit が独立: feat(green): commit はリファクタと分離
+## TDD 遵守 (§3.5 準拠)
+<!-- 適用対象: lexer/parser/json/syntaxcheck/value/evaluator パッケージを含む PR -->
+<!-- 確認コマンド: gh pr view <N> --json commits --jq '.commits[].messageHeadline' -->
+- [ ] test(red): commit が feat(green): commit より先に存在する
+- [ ] feat(green): commit がリファクタと分離されている
 - [ ] テストリスト記載 (下記「## テストリスト」セクション)
-- [ ] 適用範囲外につき該当なし (N/A)
+- [ ] 適用範囲外 / 例外 (N/A): 理由: refactor-only / docs / 設定 / 緊急修正 など
 
 ## テストリスト (TDD 適用時)
 <!-- 実装着手前に作成、達成済みは [x] に変更 -->
