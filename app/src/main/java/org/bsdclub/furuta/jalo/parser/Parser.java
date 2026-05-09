@@ -188,7 +188,7 @@ public final class Parser {
     }
 
     private JsonArray parseArray() {
-        Token.LBracket open = expect(Token.LBracket.class, "Expected '['");
+        expect(Token.LBracket.class, "Expected '['");
         JsonArray arr = JsonArray.empty();
         if (peek() instanceof Token.RBracket) {
             advance();
