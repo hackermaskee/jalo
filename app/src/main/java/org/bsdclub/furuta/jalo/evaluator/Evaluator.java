@@ -10,6 +10,9 @@ import org.bsdclub.furuta.jalo.json.JsonNull;
 import org.bsdclub.furuta.jalo.json.JsonNumber;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloInt;
+import org.bsdclub.furuta.jalo.value.JaloLong;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 
 public final class Evaluator {
     private final Environment globalEnv;
