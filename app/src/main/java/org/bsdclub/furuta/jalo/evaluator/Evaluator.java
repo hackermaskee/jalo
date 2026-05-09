@@ -14,17 +14,49 @@ import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloValue;
 
+/**
+ * Tree-walking interpreter for jalo JSON model AST.
+ *
+ * <p>Layer: Evaluation (per DESIGN.md §1 architecture table).
+ * Consumes verified AST and produces runtime values or effect signals.
+ *
+ * <p>State model: this evaluator keeps a mutable global namespace in
+ * {@link #globalEnv} for {@code def} accumulation.
+ *
+ * @see Environment
+ * @see JaloEffectSignal
+ * @see <a href="../../../docs/SPEC.md#4">SPEC §4 semantics</a>
+ */
 public final class Evaluator {
     private final Environment globalEnv;
 
+    /**
+     * Creates a new evaluator with a fresh global namespace.
+     */
     public Evaluator() {
         this.globalEnv = Environment.root();
     }
 
+    /**
+     * Evaluates an AST in this evaluator's global environment.
+     *
+     * @param ast AST node to evaluate
+     * @return evaluated value
+     */
     public JaloValue eval(JsonValue ast) {
         return eval(ast, globalEnv);
     }
 
+    /**
+     * Evaluates an AST in the given environment.
+     *
+     * @param ast AST node to evaluate
+     * @param env environment used for name resolution
+     * @return evaluated value
+     * @implSpec Dispatches via sealed switch on {@link JsonValue} subtypes.
+     *           Adding a new {@link JsonValue} subtype requires updating this
+     *           switch (compiler-enforced via sealed permits).
+     */
     public JaloValue eval(JsonValue ast, Environment env) {
         if (ast instanceof JsonNull || ast instanceof JsonBool || ast instanceof JsonNumber) {
             return ast;

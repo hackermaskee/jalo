@@ -4,9 +4,27 @@ import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
 
+/**
+ * Static syntactic checker for jalo JSON model AST.
+ *
+ * <p>Layer: SyntaxChecker (per DESIGN.md §1 architecture table).
+ * Validates name resolution, special-form structure, and pattern syntax
+ * over JSON model produced by parser layer.
+ *
+ * @see Scope
+ * @see SyntaxCheckException
+ * @see <a href="../../../docs/SPEC.md#42">SPEC §4.2 special forms</a>
+ * @see <a href="../../../docs/SPEC.md#53">SPEC §5.3 pattern constraints</a>
+ */
 public final class SyntaxChecker {
     private Scope topLevel = Scope.empty();
 
+    /**
+     * Validates a JSON model AST.
+     *
+     * @param value AST node to validate
+     * @throws SyntaxCheckException if name resolution or special-form syntax is invalid
+     */
     public void check(JsonValue value) {
         topLevel = checkValue(value, topLevel);
     }
