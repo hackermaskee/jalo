@@ -84,6 +84,88 @@ squash merge 前の feature branch でこの prefix が付いていれば、
 - 本規約は cmd_396 で確立した t-wada 流 TDD 方針 (Red→Green→Refactor 短サイクル) の実装規約化である。
 - 機械化 (GitHub Actions による commit prefix lint) は将来 cmd の候補とする。
 
+## 3.6 Javadoc 規約
+
+### 適用条件
+殿の memo 指摘に基づき、以下の場合は Javadoc を省略可能とする。
+1. テストコード (`src/test/` 配下)
+2. `private` メソッド
+3. `@Override` メソッドで、override 元の Javadoc で十分な場合
+4. setter/getter
+
+`@Override` の省略は、以下 3 条件をすべて満たす場合のみ許可する。
+1. super 実装と同等の挙動
+2. 独自意味論なし (独自フォーマット、NaN 扱い変更などがない)
+3. 副作用・パフォーマンス特性が super と同一
+
+いずれかを満たさない場合は追記必須とする。
+例: `fillInStackTrace` override のような性能特性変更は追記必須。
+
+### 言語規約
+- Javadoc は **英語のみ** とする。
+- 既存の日本語 Javadoc は英訳する。
+
+### 文体規約 (DbC 意識)
+Design by Contract (DbC, Bertrand Meyer) を意識して記述する。
+
+文頭 (一文目サマリ):
+- 3 人称現在動詞で開始する: Returns / Computes / Validates / Parses / Binds / Evaluates / Checks
+- 良い例: `Returns the tokenized list of the input string.`
+- 悪い例: `Tokenize the input string.` / `Tokenized list.`
+
+`@param` (precondition):
+- 呼び出し側責任を明示する。
+- 良い例: `@param name variable name to look up; must not be null`
+- 悪い例: `@param name the name`
+
+`@return` (postcondition):
+- 名詞句 (`the ...`) で記述する。
+- 良い例: `@return the bound {@link JaloValue}, never {@code null}`
+- 悪い例: `@return Returns the value.`
+
+`@throws` (invariant/exception):
+- `if ...` 形式で発動条件を明示する。可能なら SPEC 章を参照する。
+- 良い例: `@throws LexerException if the input contains an unrecognized character (SPEC §3.1)`
+- 悪い例: `@throws LexerException Lexer error.`
+
+### クラス Javadoc 構成
+以下の構成を標準とする。
+
+```java
+/**
+ * <One-sentence summary in 3rd person present tense.>
+ *
+ * <p>Layer: <Layer name> (per DESIGN.md §1 architecture table).
+ * <Detailed responsibility paragraph.>
+ *
+ * @see <RelatedClass>
+ * @see <a href="../../../docs/SPEC.md#X">SPEC §X reference</a>
+ */
+```
+
+Layer 名は `DESIGN.md` §1 のアーキテクチャ表に合わせる:
+Parser / JSON Model / SyntaxChecker / Evaluator / Runtime / Stdlib
+
+### `@implSpec` / `@implNote` タグ
+Java 9+ タグを採用する。
+- `@implSpec`: overrider が守るべき実装仕様 (サブタイプへ継承される契約)
+- `@implNote`: 実装詳細メモ (API 利用者向けではない設計意図)
+
+使用例:
+- `@implSpec`: `Evaluator.eval` (sealed switch ディスパッチ規約), `JaloFunction.apply` (評価順序)
+- `@implNote`: `Environment.bind` (flat-flatten 設計), `JaloEffectSignal.fillInStackTrace` (stack trace 抑制)
+
+### 推奨タグ整理
+| タグ | 用途 |
+|---|---|
+| `@param` | 事前条件 (precondition) |
+| `@return` | 事後条件 (postcondition) |
+| `@throws` | 例外条件 (invariant 違反) |
+| `@implSpec` | 実装仕様 (overrider への契約) |
+| `@implNote` | 実装メモ (設計選択理由) |
+| `{@link}` | 関連クラス・メソッドへのリンク |
+| `{@code}` | コード断片のインライン表示 |
+
 ## 4. マージ方式
 - Default: Squash merge（家老が `gh pr merge --squash` を実施）
 - 理由: 足軽の WIP commit を整理し、`main` の履歴を clean に保つ
