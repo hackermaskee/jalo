@@ -110,4 +110,27 @@ class EvaluatorTest {
         JaloValue result = ev.eval(parse("(greet (quote \"world\"))"));
         assertThat(result).isEqualTo(new JsonString("string"));
     }
+
+    @Test
+    void prcT1_bindMultipleNamesInOneScope() {
+        Environment env = Environment.root().bind("x", new JsonNumber(1)).bind("y", new JsonNumber(2));
+        assertThat(env.lookup("x")).isEqualTo(new JsonNumber(1));
+        assertThat(env.lookup("y")).isEqualTo(new JsonNumber(2));
+    }
+
+    @Test
+    void prcT2_innerBindShadowsOuterInSameMap() {
+        Environment env = Environment.root().bind("x", new JsonNumber(1)).bind("x", new JsonNumber(2));
+        assertThat(env.lookup("x")).isEqualTo(new JsonNumber(2));
+    }
+
+    @Test
+    void prcT3_immutableBindReturnsNewEnvironment() {
+        Environment original = Environment.root().bind("x", new JsonNumber(1));
+        Environment derived = original.bind("y", new JsonNumber(2));
+        assertThat(original.lookup("x")).isEqualTo(new JsonNumber(1));
+        assertThat(derived.lookup("y")).isEqualTo(new JsonNumber(2));
+        assertThatThrownBy(() -> original.lookup("y"))
+            .isInstanceOf(JaloEffectSignal.class);
+    }
 }

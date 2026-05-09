@@ -7,22 +7,20 @@ import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
 public final class Environment {
-    private final Environment parent;
     private final PersistentHashMap<String, JaloValue> localBindings;
     private final Map<String, JaloValue> globalBindings;
 
-    private Environment(Environment parent, PersistentHashMap<String, JaloValue> localBindings, Map<String, JaloValue> globalBindings) {
-        this.parent = parent;
+    private Environment(PersistentHashMap<String, JaloValue> localBindings, Map<String, JaloValue> globalBindings) {
         this.localBindings = localBindings;
         this.globalBindings = globalBindings;
     }
 
     public static Environment root() {
-        return new Environment(null, PersistentHashMap.empty(), new HashMap<>());
+        return new Environment(PersistentHashMap.empty(), new HashMap<>());
     }
 
     public Environment bind(String name, JaloValue value) {
-        return new Environment(this, PersistentHashMap.<String, JaloValue>empty().assoc(name, value), globalBindings);
+        return new Environment(localBindings.assoc(name, value), globalBindings);
     }
 
     public void defineGlobal(String name, JaloValue value) {
@@ -43,11 +41,7 @@ public final class Environment {
 
     public JaloValue lookup(String name) {
         if (localBindings.containsKey(name)) {
-            JaloValue local = localBindings.get(name);
-            return local;
-        }
-        if (parent != null) {
-            return parent.lookup(name);
+            return localBindings.get(name);
         }
         if (globalBindings.containsKey(name)) {
             return globalBindings.get(name);
