@@ -1,4 +1,6 @@
 package org.bsdclub.furuta.jalo.json;
 
-public sealed interface JsonValue permits JsonNull, JsonBool, JsonNumber, JsonString, JsonArray, JsonObject {
+import org.bsdclub.furuta.jalo.evaluator.JaloValue;
+
+public sealed interface JsonValue extends JaloValue permits JsonNull, JsonBool, JsonNumber, JsonString, JsonArray, JsonObject {
 }
