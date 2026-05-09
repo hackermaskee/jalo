@@ -51,9 +51,38 @@ TDD サイクルに対応した Conventional Commits 準拠の prefix を使用�
 - `feat(green): <description>` - 最小実装でテスト通過 (Green commit)
 - `refactor: <description>` - リファクタリング (Refactor commit)
 
+軍師確認コマンド (例):
+```bash
+gh pr view <PR番号> --json commits --jq '.commits[].messageHeadline'
+```
+出力に `test(red):` / `feat(green):` / `refactor:` が含まれることを確認する。
+
+適用範囲:
+- 以下パッケージへの変更を含む PR が適用対象:
+  `org.bsdclub.furuta.jalo.lexer` / `parser` / `json` / `syntaxcheck` / `value` / `evaluator`
+  (将来追加予定: `runtime` / `stdlib`)
+
+適用範囲外:
+- 以下のみへの変更 PR は適用範囲外:
+  `docs/*` / `.github/workflows/*` / `build.gradle` / `settings.gradle` / `CONTRIBUTING.md` / `*.md` 等
+
+例外規定:
+- refactor PR: 機能変更を伴わないリネーム・型階層変更等は `refactor:` commit のみで可。
+  ただし PR description で `TDD N/A: refactor-only` と明示すること。
+- 緊急修正 PR: 殿の override 発動時は適用範囲外。ただし事後 dashboard 記録必須。
+- docs PR: ドキュメントのみの変更 (`CONTRIBUTING.md` / `SPEC.md` / `DESIGN.md` 等) は適用範囲外。
+
+違反時対処:
+- 軍師は PR の commit 履歴を確認し、適用範囲内 PR で TDD prefix が付与されていない場合、
+  機械的根拠 (commit log を引用) と共に `changes_requested` を発動する。
+- PR 提出者は修正後に re-request review すること。
+
 squash merge 前の feature branch でこの prefix が付いていれば、
 軍師が `gh pr view --json commits` で TDD 遵守を機械的に確認可能。
-適用範囲: コアロジック PR (設定・ビルド PR は通常の commit 命名を使用)。
+
+上位規範との接続:
+- 本規約は cmd_396 で確立した t-wada 流 TDD 方針 (Red→Green→Refactor 短サイクル) の実装規約化である。
+- 機械化 (GitHub Actions による commit prefix lint) は将来 cmd の候補とする。
 
 ## 4. マージ方式
 - Default: Squash merge（家老が `gh pr merge --squash` を実施）
