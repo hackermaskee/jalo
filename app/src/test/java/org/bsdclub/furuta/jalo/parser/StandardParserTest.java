@@ -32,6 +32,15 @@ class StandardParserTest {
     @Test void c10_objectWhitespace() { assertThat(parse("{a: 1 b: 2}")).isEqualTo(JsonObject.empty().put("a", new JsonNumber(1.0)).put("b", new JsonNumber(2.0))); }
     @Test void c11_objectComma() { assertThat(parse("{a: 1, b: 2}")).isEqualTo(JsonObject.empty().put("a", new JsonNumber(1.0)).put("b", new JsonNumber(2.0))); }
     @Test void c12_prefixCallLikeForm() { assertThat(parse("(+ 1 2)")).isEqualTo(JsonArray.of(new JsonString("+"), new JsonNumber(1.0), new JsonNumber(2.0))); }
-    @Test void c13_nestedForm() { assertThat(parse("(if (= x 0) 1 2)")).isEqualTo(JsonArray.of(new JsonString("if"), JsonArray.of(new JsonString("="), new JsonString("x"), new JsonNumber(0.0)), new JsonNumber(1.0), new JsonNumber(2.0))); }
+    @Test
+    void c13_nestedForm() {
+        assertThat(parse("(if (= x 0) 1 2)"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("if"),
+                    JsonArray.of(new JsonString("="), new JsonString("x"), new JsonNumber(0.0)),
+                    new JsonNumber(1.0),
+                    new JsonNumber(2.0)));
+    }
     @Test void c14_jsonBoundary() { assertThat(parse("{\"a\": 1}")).isEqualTo(JsonObject.empty().put("a", new JsonNumber(1.0))); }
 }
