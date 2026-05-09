@@ -1,10 +1,10 @@
-package org.bsdclub.furuta.jalo.typecheck;
+package org.bsdclub.furuta.jalo.syntaxcheck;
 
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
 
-public final class TypeChecker {
+public final class SyntaxChecker {
     private Scope topLevel = Scope.empty();
 
     public void check(JsonValue value) {
@@ -14,7 +14,7 @@ public final class TypeChecker {
     private Scope checkValue(JsonValue value, Scope scope) {
         if (value instanceof JsonString s) {
             if (!scope.isResolved(s.value())) {
-                throw new TypeCheckException("Unbound variable: " + s.value() + " in " + value);
+                throw new SyntaxCheckException("Unbound variable: " + s.value() + " in " + value);
             }
             return scope;
         }
@@ -51,7 +51,7 @@ public final class TypeChecker {
 
     private Scope checkDef(JsonArray form, Scope scope) {
         if (form.size() != 3 || !(form.get(1) instanceof JsonString name)) {
-            throw new TypeCheckException("Wrong arity for def: " + form);
+            throw new SyntaxCheckException("Wrong arity for def: " + form);
         }
         checkValue(form.get(2), scope);
         return scope.withBinding(name.value());
@@ -59,14 +59,14 @@ public final class TypeChecker {
 
     private Scope checkQuote(JsonArray form, Scope scope) {
         if (form.size() != 2) {
-            throw new TypeCheckException("Wrong arity for quote: " + form);
+            throw new SyntaxCheckException("Wrong arity for quote: " + form);
         }
         return scope;
     }
 
     private Scope checkBackquote(JsonArray form, Scope scope) {
         if (form.size() != 2) {
-            throw new TypeCheckException("Wrong arity for backquote: " + form);
+            throw new SyntaxCheckException("Wrong arity for backquote: " + form);
         }
         checkPattern(form.get(1));
         return scope;
@@ -93,19 +93,19 @@ public final class TypeChecker {
 
     private void checkDollar(JsonArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
-            throw new TypeCheckException("Pattern: dollar followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: dollar followed by non-variable: " + form);
         }
     }
 
     private void checkAt(JsonArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
-            throw new TypeCheckException("Pattern: at followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: at followed by non-variable: " + form);
         }
     }
 
     private void checkPercent(JsonArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
-            throw new TypeCheckException("Pattern: percent followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: percent followed by non-variable: " + form);
         }
     }
 
@@ -122,7 +122,7 @@ public final class TypeChecker {
             checkPattern(child);
         }
         if (atCount > 1) {
-            throw new TypeCheckException("Pattern: multiple 'at' in array: " + form);
+            throw new SyntaxCheckException("Pattern: multiple 'at' in array: " + form);
         }
     }
 
@@ -139,12 +139,12 @@ public final class TypeChecker {
             }
 
             if (isDollarKeyEntry(child)) {
-                throw new TypeCheckException("Pattern: dollar key not allowed in map: " + form);
+                throw new SyntaxCheckException("Pattern: dollar key not allowed in map: " + form);
             }
             checkPattern(child);
         }
         if (percentCount > 1) {
-            throw new TypeCheckException("Pattern: multiple 'percent' in map: " + form);
+            throw new SyntaxCheckException("Pattern: multiple 'percent' in map: " + form);
         }
     }
 
@@ -172,7 +172,7 @@ public final class TypeChecker {
 
     private Scope checkIf(JsonArray form, Scope scope) {
         if (form.size() != 4) {
-            throw new TypeCheckException("Wrong arity for if: " + form);
+            throw new SyntaxCheckException("Wrong arity for if: " + form);
         }
         checkValue(form.get(1), scope);
         checkValue(form.get(2), scope);
@@ -182,12 +182,12 @@ public final class TypeChecker {
 
     private Scope checkDeclare(JsonArray form, Scope scope) {
         if (form.size() < 2) {
-            throw new TypeCheckException("Wrong arity for declare: " + form);
+            throw new SyntaxCheckException("Wrong arity for declare: " + form);
         }
         Scope declared = scope;
         for (int i = 1; i < form.size(); i++) {
             if (!(form.get(i) instanceof JsonString name)) {
-                throw new TypeCheckException("declare arguments must be identifiers: " + form);
+                throw new SyntaxCheckException("declare arguments must be identifiers: " + form);
             }
             declared = declared.withDeclaration(name.value());
         }
@@ -196,22 +196,22 @@ public final class TypeChecker {
 
     private Scope checkFn(JsonArray form, Scope scope) {
         if (form.size() < 3 || !(form.get(1) instanceof JsonArray params)) {
-            throw new TypeCheckException("Wrong arity for fn: " + form);
+            throw new SyntaxCheckException("Wrong arity for fn: " + form);
         }
 
         Scope fnScope = scope;
         boolean restSeen = false;
         for (int i = 0; i < params.size(); i++) {
             if (!(params.get(i) instanceof JsonString p)) {
-                throw new TypeCheckException("fn params must be identifiers: " + form);
+                throw new SyntaxCheckException("fn params must be identifiers: " + form);
             }
 
             if ("&".equals(p.value())) {
                 if (restSeen || i != params.size() - 2) {
-                    throw new TypeCheckException("fn rest marker '&' must appear once before rest param: " + form);
+                    throw new SyntaxCheckException("fn rest marker '&' must appear once before rest param: " + form);
                 }
                 if (!(params.get(i + 1) instanceof JsonString restParam) || "&".equals(restParam.value())) {
-                    throw new TypeCheckException("fn rest parameter must be one identifier: " + form);
+                    throw new SyntaxCheckException("fn rest parameter must be one identifier: " + form);
                 }
                 fnScope = fnScope.withBinding(restParam.value());
                 restSeen = true;
@@ -231,17 +231,17 @@ public final class TypeChecker {
     private Scope checkLet(JsonArray form, Scope scope, boolean sequential) {
         String formName = sequential ? "let*" : "let";
         if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings)) {
-            throw new TypeCheckException("Wrong arity for " + formName + ": " + form);
+            throw new SyntaxCheckException("Wrong arity for " + formName + ": " + form);
         }
         if (bindings.size() % 2 != 0) {
-            throw new TypeCheckException(formName + " bindings must be even-length: " + form);
+            throw new SyntaxCheckException(formName + " bindings must be even-length: " + form);
         }
 
         Scope bodyScope = scope;
         Scope evalScope = scope;
         for (int i = 0; i < bindings.size(); i += 2) {
             if (!(bindings.get(i) instanceof JsonString name)) {
-                throw new TypeCheckException("binding name must be identifier: " + form);
+                throw new SyntaxCheckException("binding name must be identifier: " + form);
             }
             checkValue(bindings.get(i + 1), sequential ? evalScope : scope);
             bodyScope = bodyScope.withBinding(name.value());
@@ -258,13 +258,13 @@ public final class TypeChecker {
 
     private Scope checkLetRec(JsonArray form, Scope scope) {
         if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings) || bindings.size() % 2 != 0) {
-            throw new TypeCheckException("Wrong arity for letrec: " + form);
+            throw new SyntaxCheckException("Wrong arity for letrec: " + form);
         }
 
         Scope recScope = scope;
         for (int i = 0; i < bindings.size(); i += 2) {
             if (!(bindings.get(i) instanceof JsonString name)) {
-                throw new TypeCheckException("binding name must be identifier: " + form);
+                throw new SyntaxCheckException("binding name must be identifier: " + form);
             }
             recScope = recScope.withBinding(name.value());
         }

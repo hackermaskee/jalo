@@ -1,4 +1,4 @@
-package org.bsdclub.furuta.jalo.typecheck;
+package org.bsdclub.furuta.jalo.syntaxcheck;
 
 import org.organicdesign.fp.collections.PersistentHashSet;
 

@@ -10,7 +10,7 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 |---|---|---|
 | Parser | JSON/YAML/標準構文の構文解析 | JSON モデル |
 | JSON モデル | 言語中間表現 (JsonValue 階層) の保持 | 正規化 JSON モデル |
-| TypeChecker | 名前解決・特殊フォーム構造・パターン構文検証 (型推論は将来) | 検証済み JSON モデル |
+| SyntaxChecker | 名前解決・特殊フォーム構造・パターン構文検証 (型推論は将来) | 検証済み JSON モデル |
 | Evaluator | 実行時評価 (Phase 1) | 値 / エフェクト |
 | Runtime | 環境・束縛・例外/エフェクト制御 | 実行コンテキスト |
 | Stdlib | 組み込み・jq互換関数群 | ユーザ可視 API |
@@ -135,7 +135,7 @@ Phase 1 完成に向けた推奨順序:
 - `evaluator/` — ツリー歩行評価器
 - `runtime/` — 環境・束縛・エフェクト機構
 - `stdlib/` — 組み込み関数・jq 互換ライブラリ
-- `typecheck/` — 型検査器
+- `syntaxcheck/` — 型検査器
 
 ## 5. テスト戦略
 
@@ -231,7 +231,7 @@ org.bsdclub.furuta.jalo          ← CLI/REPL エントリポイント (App.java
 org.bsdclub.furuta.jalo.lexer    ← 字句解析器 (Lexer/Token/LexerException)
 org.bsdclub.furuta.jalo.parser   ← 構文解析器 (Parser/ParserException)
 org.bsdclub.furuta.jalo.json     ← JSON モデル定義 (JsonValue sealed hierarchy)
-org.bsdclub.furuta.jalo.typecheck ← 静的検査器 (名前解決・特殊フォーム・パターン)
+org.bsdclub.furuta.jalo.syntaxcheck ← 静的検査器 (名前解決・特殊フォーム・パターン)
 org.bsdclub.furuta.jalo.value    ← 実行時値の上位概念 + JSON 非表現プリミティブ (JaloValue, JaloInt, JaloLong)
 org.bsdclub.furuta.jalo.evaluator ← 評価器 (代数的エフェクト含む)
 org.bsdclub.furuta.jalo.runtime  ← ランタイム環境
@@ -251,7 +251,7 @@ Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェ�
 | lexer | 字句解析 (Lexer) | Lexer, Token, LexerException |
 | parser | 構文解析 (Token → JSON モデル変換) | Parser, ParserException |
 | json | JSON モデル AST | JsonValue (sealed), JsonNull, JsonBool, JsonNumber, JsonString, JsonArray, JsonObject |
-| typecheck | 名前解決・特殊フォーム検証・パターン検証 | TypeChecker, TypeCheckException, Scope |
+| syntaxcheck | 名前解決・特殊フォーム検証・パターン検証 | SyntaxChecker, SyntaxCheckException, Scope |
 | value | 実行時値の上位概念 + JSON 非表現プリミティブ | JaloValue, JaloInt, JaloLong |
 | evaluator | 評価器 | Evaluator, JaloSignal |
 | runtime | ランタイム | Environment, CallStack |
@@ -283,3 +283,5 @@ app/src/test/java/org/bsdclub/furuta/jalo/lexer/LexerTest.java
 - `org.bsdclub.furuta.jalo.lexer.Lexer` — `List<Token> tokenize(String input)`
 - `org.bsdclub.furuta.jalo.lexer.Token` — sealed interface + 21 record subtypes
 - `org.bsdclub.furuta.jalo.lexer.LexerException` — RuntimeException + line/col
+
+> 注記: 静的型推論は将来構想、現状は構文検証ゆえ syntaxcheck 命名を採用 (殿の memo.txt 指摘 5 対応、cmd_404 PR-B)
