@@ -9,6 +9,8 @@ import org.bsdclub.furuta.jalo.json.JsonNumber;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
+import org.bsdclub.furuta.jalo.value.JaloLong;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.junit.jupiter.api.Test;
 
 class EvaluatorTest {

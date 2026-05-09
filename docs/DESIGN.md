@@ -232,6 +232,7 @@ org.bsdclub.furuta.jalo.lexer    ← 字句解析器 (Lexer/Token/LexerException
 org.bsdclub.furuta.jalo.parser   ← 構文解析器 (Parser/ParserException)
 org.bsdclub.furuta.jalo.json     ← JSON モデル定義 (JsonValue sealed hierarchy)
 org.bsdclub.furuta.jalo.typecheck ← 静的検査器 (名前解決・特殊フォーム・パターン)
+org.bsdclub.furuta.jalo.value    ← 実行時値の上位概念 + JSON 非表現プリミティブ (JaloValue, JaloInt, JaloLong)
 org.bsdclub.furuta.jalo.evaluator ← 評価器 (代数的エフェクト含む)
 org.bsdclub.furuta.jalo.runtime  ← ランタイム環境
 org.bsdclub.furuta.jalo.stdlib   ← 標準ライブラリ
@@ -239,6 +240,7 @@ org.bsdclub.furuta.jalo.stdlib   ← 標準ライブラリ
 
 **根拠**: `org.bsdclub.furuta` は殿の所有ドメイン (furuta@furuta.bsdclub.org) に基づく
 Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェクトの artifact ID。
+**注記**: 循環依存解消のため `JaloValue` / `JaloInt` / `JaloLong` を `evaluator` から `value` へ移動した (cmd_404 PR-A)。
 
 ### 7.2 サブパッケージ命名指針
 
@@ -250,6 +252,7 @@ Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェ�
 | parser | 構文解析 (Token → JSON モデル変換) | Parser, ParserException |
 | json | JSON モデル AST | JsonValue (sealed), JsonNull, JsonBool, JsonNumber, JsonString, JsonArray, JsonObject |
 | typecheck | 名前解決・特殊フォーム検証・パターン検証 | TypeChecker, TypeCheckException, Scope |
+| value | 実行時値の上位概念 + JSON 非表現プリミティブ | JaloValue, JaloInt, JaloLong |
 | evaluator | 評価器 | Evaluator, JaloSignal |
 | runtime | ランタイム | Environment, CallStack |
 | stdlib | 標準ライブラリ | StdLib, BuiltinFn |

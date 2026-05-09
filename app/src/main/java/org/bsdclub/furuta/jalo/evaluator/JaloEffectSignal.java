@@ -1,5 +1,7 @@
 package org.bsdclub.furuta.jalo.evaluator;
 
+import org.bsdclub.furuta.jalo.value.JaloValue;
+
 public final class JaloEffectSignal extends RuntimeException {
     private final JaloValue tag;
     private final JaloValue value;

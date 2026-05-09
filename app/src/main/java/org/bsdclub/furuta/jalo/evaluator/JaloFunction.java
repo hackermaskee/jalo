@@ -4,6 +4,7 @@ import java.util.List;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 
 public final class JaloFunction implements JaloValue {
     private final List<String> params;

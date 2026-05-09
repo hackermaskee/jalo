@@ -3,6 +3,7 @@ package org.bsdclub.furuta.jalo.evaluator;
 import java.util.HashMap;
 import java.util.Map;
 import org.bsdclub.furuta.jalo.json.JsonString;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
 public final class Environment {
