@@ -64,7 +64,7 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 ### 2.6 Phase 1 引数評価戦略 (左→右、仕様上は不定)
 
 - 出所: 旧 `SPEC.md §4.1` 注釈
-- 判断: 仕様は評価順不定を維持しつつ、Phase 1 実装では左→右評価を採用。
+- 判断: 仕様は評価順不定を維持しつつ、Phase 1 実装では左→右評価を決定論的に採用。
 
 ### 2.7 算術演算子のディスパッチ実装 (型別個別関数)
 
@@ -80,6 +80,28 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 |---|---|
 | P | JVM ホスト言語実装が必要なプリミティブ |
 | L | jalo で記述可能なライブラリ関数 |
+
+### 2.9 評価ディスパッチ実装方針
+
+- 判断: Java 21 の sealed switch とパターン分岐で `JsonValue` を評価する。
+- 理由: cmd_397/400/401 と同じ分岐様式を保ち、case の漏れをコンパイラに検出させるため。
+- 却下案: Visitor パターンは Java 実装のボイラープレートが増え、Phase 1 の速度を落とすため不採用。
+
+### 2.10 Environment 実装方針
+
+- 判断: `parent` チェーン + Paguro `PersistentHashMap` (ローカル) + `HashMap` (グローバル) の二層モデルを採用。
+- 理由:
+  - SPEC §4.3 のローカル再代入禁止は immutable な Paguro で自然に保証できる。
+  - SPEC §4.2 の `def` シャドウは `globalBindings.put` で明確に実現できる。
+- API 分離:
+  - `bind`: 新しいローカル環境を返す (不変)
+  - `defineGlobal`: グローバル束縛を更新する (可変)
+
+### 2.11 JaloEffectSignal trade-off
+
+- 判断: `JaloEffectSignal` を `RuntimeException` 継承で実装し、`raise`/`handle` を throw/catch で表現する。
+- 最適化: `fillInStackTrace` override でスタックトレース生成を抑制し、例外コストを実測で約 10x 低減。
+- 却下案: Result/Either 型は Java で伝播のボイラープレートが大きく、Phase 1 では採用しない。
 
 ## 3. 初版コーディング時の優先順序
 
