@@ -3,11 +3,27 @@
  */
 package org.bsdclub.furuta.jalo;
 
+/**
+ * CLI entry point placeholder for jalo.
+ *
+ * <p>This class is currently a Hello World template and may be replaced
+ * when full REPL/bootstrap behavior is implemented.
+ */
 public class App {
+    /**
+     * Returns the default greeting string.
+     *
+     * @return greeting text
+     */
     public String getGreeting() {
         return "Hello World!";
     }
 
+    /**
+     * Program entry point.
+     *
+     * @param args command-line arguments
+     */
     public static void main(String[] args) {
         System.out.println(new App().getGreeting());
     }
