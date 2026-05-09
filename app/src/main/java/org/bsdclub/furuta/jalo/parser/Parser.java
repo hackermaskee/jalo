@@ -10,12 +10,31 @@ import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
 import org.bsdclub.furuta.jalo.lexer.Token;
 
+/**
+ * Parses token streams into JSON-model trees for jalo syntax modes.
+ *
+ * <p>Layer: Parser (per DESIGN.md §1 architecture table).
+ * This parser supports JSON mode and standard mode according to SPEC §3.2 and §4.
+ *
+ * @see org.bsdclub.furuta.jalo.lexer.Lexer
+ */
 public final class Parser {
+    /**
+     * Represents parser entry modes for JSON and standard syntax.
+     */
     public enum ParseMode { JSON, STANDARD }
 
     private List<Token> tokens;
     private int index;
 
+    /**
+     * Parses tokens with the specified syntax mode.
+     *
+     * @param tokens token sequence ending with EOF
+     * @param mode parsing mode that determines grammar selection
+     * @return the parsed JSON-model tree
+     * @throws ParserException if the token stream violates the selected grammar (SPEC §3.2, §4)
+     */
     public JsonValue parse(List<Token> tokens, ParseMode mode) {
         return switch (mode) {
             case JSON -> parseJson(tokens);
@@ -23,6 +42,13 @@ public final class Parser {
         };
     }
 
+    /**
+     * Parses tokens using strict JSON grammar.
+     *
+     * @param tokens token sequence ending with EOF
+     * @return the parsed JSON value
+     * @throws ParserException if the token stream is not valid JSON (SPEC §3.2)
+     */
     public JsonValue parseJson(List<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;
@@ -34,6 +60,15 @@ public final class Parser {
         return value;
     }
 
+    /**
+     * Parses tokens using jalo standard syntax grammar.
+     *
+     * @param tokens token sequence ending with EOF
+     * @return the parsed standard-syntax value normalized to JSON model
+     * @throws ParserException if the token stream violates standard syntax rules (SPEC §4)
+     *
+     * @implNote Requires explicit mode selection by callers to avoid ambiguous auto-detection.
+     */
     public JsonValue parseStandard(List<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;

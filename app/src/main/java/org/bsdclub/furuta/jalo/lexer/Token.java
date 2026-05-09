@@ -1,5 +1,13 @@
 package org.bsdclub.furuta.jalo.lexer;
 
+/**
+ * Represents a token produced by lexical analysis for jalo source text.
+ *
+ * <p>Layer: Lexer (per DESIGN.md §1 architecture table).
+ * This sealed interface models all lexical token variants consumed by the parser.
+ *
+ * @see Lexer
+ */
 public sealed interface Token permits
     Token.NumberDouble, Token.NumberInt, Token.NumberLong,
     Token.Null, Token.True, Token.False,
@@ -11,7 +19,18 @@ public sealed interface Token permits
     Token.Backquote, Token.Dollar, Token.At, Token.Percent,
     Token.Eof {
 
+    /**
+     * Returns the 1-based line number where this token starts.
+     *
+     * @return the source line number
+     */
     int line();
+
+    /**
+     * Returns the 1-based column number where this token starts.
+     *
+     * @return the source column number
+     */
     int col();
 
     record NumberDouble(double value, int line, int col) implements Token {}

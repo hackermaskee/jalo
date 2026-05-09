@@ -3,12 +3,27 @@ package org.bsdclub.furuta.jalo.lexer;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Tokenizes jalo source text into a parser-consumable token sequence.
+ *
+ * <p>Layer: Lexer (per DESIGN.md §1 architecture table).
+ * This class applies the lexical rules defined in SPEC §3.
+ *
+ * @see Token
+ */
 public final class Lexer {
     private String input;
     private int idx;
     private int line;
     private int col;
 
+    /**
+     * Tokenizes input text and appends an EOF token at the end.
+     *
+     * @param input source text to tokenize; {@code null} is treated as an empty string
+     * @return the token sequence including the trailing EOF token
+     * @throws LexerException if the input contains an invalid token form (SPEC §3.1)
+     */
     public List<Token> tokenize(String input) {
         this.input = input == null ? "" : input;
         this.idx = 0;
