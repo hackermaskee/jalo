@@ -72,7 +72,7 @@ public final class Parser {
     public JsonValue parseStandard(List<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;
-        JsonValue value = parseStandardValue();
+        JsonValue value = parseExpr(false);
         if (!(peek() instanceof Token.Eof)) {
             Token token = peek();
             throw new ParserException("Unexpected token after standard value", token.line(), token.col());
@@ -80,7 +80,14 @@ public final class Parser {
         return value;
     }
 
-    private JsonValue parseStandardValue() {
+    /**
+     * Parses standard expressions, including backquote sugar forms (SPEC §5.5).
+     *
+     * @param inBackquote true when parsing inside a backquote context
+     * @return parsed expression
+     * @throws ParserException if parsing fails due to invalid syntax
+     */
+    private JsonValue parseExpr(boolean inBackquote) {
         Token token = peek();
         return switch (token) {
             case Token.Null t -> { advance(); yield JsonNull.INSTANCE; }
@@ -97,17 +104,49 @@ public final class Parser {
             }
             case Token.Str t -> { advance(); yield new JsonString(t.value()); }
             case Token.Identifier t -> { advance(); yield new JsonString(t.name()); }
-            case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]");
+            case Token.Backquote t -> {
+                advance();
+                yield JsonArray.of(new JsonString("backquote"), parseExpr(true));
+            }
+            case Token.Dollar t -> {
+                if (!inBackquote) {
+                    throw new ParserException("$ outside backquote context (SPEC §5.5)", t.line(), t.col());
+                }
+                advance();
+                yield JsonArray.of(new JsonString("dollar"), parseExpr(false));
+            }
+            case Token.At t -> {
+                if (!inBackquote) {
+                    throw new ParserException("@ outside backquote context (SPEC §5.5)", t.line(), t.col());
+                }
+                advance();
+                yield JsonArray.of(new JsonString("at"), parseExpr(false));
+            }
+            case Token.Percent t -> {
+                if (!inBackquote) {
+                    throw new ParserException("% outside backquote context (SPEC §5.5)", t.line(), t.col());
+                }
+                advance();
+                yield JsonArray.of(new JsonString("percent"), parseExpr(false));
+            }
+            case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]", inBackquote);
             case Token.LParen t -> parseStandardArray(Token.LParen.class, Token.RParen.class, ")");
-            case Token.LBrace t -> parseStandardObject();
+            case Token.LBrace t -> parseStandardObject(inBackquote);
             case Token.Eof t -> throw new ParserException("Unexpected EOF", t.line(), t.col());
             default -> throw new ParserException("Unexpected token", token.line(), token.col());
         };
     }
 
     private JsonArray parseStandardArray(Class<? extends Token> leftType, Class<? extends Token> rightType, String right) {
+        return parseStandardArray(leftType, rightType, right, false);
+    }
+
+    private JsonArray parseStandardArray(
+            Class<? extends Token> leftType, Class<? extends Token> rightType, String right, boolean inBackquote) {
         expect(leftType, "Expected array opener");
-        JsonArray arr = JsonArray.empty();
+        JsonArray arr = inBackquote && leftType.equals(Token.LBracket.class)
+                ? JsonArray.of(new JsonString("array"))
+                : JsonArray.empty();
         while (true) {
             Token token = peek();
             if (rightType.isInstance(token)) {
@@ -117,21 +156,22 @@ public final class Parser {
             if (token instanceof Token.Eof eof) {
                 throw new ParserException("Unexpected EOF: expected '" + right + "'", eof.line(), eof.col());
             }
-            arr = arr.append(parseStandardValue());
+            arr = arr.append(parseExpr(inBackquote));
             if (peek() instanceof Token.Comma) {
                 advance();
             }
         }
     }
 
-    private JsonObject parseStandardObject() {
+    private JsonValue parseStandardObject(boolean inBackquote) {
         expect(Token.LBrace.class, "Expected '{'");
         JsonObject obj = JsonObject.empty();
+        JsonArray mapForm = JsonArray.of(new JsonString("map"));
         while (true) {
             Token token = peek();
             if (token instanceof Token.RBrace) {
                 advance();
-                return obj;
+                return inBackquote ? mapForm : obj;
             }
             if (token instanceof Token.Eof eof) {
                 throw new ParserException("Unexpected EOF: expected '}'", eof.line(), eof.col());
@@ -154,7 +194,12 @@ public final class Parser {
                 throw new ParserException("Expected ':' after key", colon.line(), colon.col());
             }
             advance();
-            obj = obj.put(key, parseStandardValue());
+            JsonValue value = parseExpr(inBackquote);
+            if (inBackquote) {
+                mapForm = mapForm.append(JsonArray.of(new JsonString(key), value));
+            } else {
+                obj = obj.put(key, value);
+            }
             if (peek() instanceof Token.Comma) {
                 advance();
             }

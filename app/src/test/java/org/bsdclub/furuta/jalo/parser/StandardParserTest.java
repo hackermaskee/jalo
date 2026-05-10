@@ -1,6 +1,7 @@
 package org.bsdclub.furuta.jalo.parser;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonBool;
@@ -43,4 +44,54 @@ class StandardParserTest {
                     new JsonNumber(2.0)));
     }
     @Test void c14_jsonBoundary() { assertThat(parse("{\"a\": 1}")).isEqualTo(JsonObject.empty().put("a", new JsonNumber(1.0))); }
+    @Test
+    void c15_backquoteLiteral() {
+        assertThat(parse("`42"))
+            .isEqualTo(JsonArray.of(new JsonString("backquote"), new JsonNumber(42.0)));
+    }
+
+    @Test
+    void c16_backquoteArrayLiteral() {
+        assertThat(parse("`[1 2 3]"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("backquote"),
+                    JsonArray.of(
+                        new JsonString("array"),
+                        new JsonNumber(1.0),
+                        new JsonNumber(2.0),
+                        new JsonNumber(3.0))));
+    }
+
+    @Test
+    void c17_backquoteArrayWithDollarAndAt() {
+        assertThat(parse("`[$x @arr]"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("backquote"),
+                    JsonArray.of(
+                        new JsonString("array"),
+                        JsonArray.of(new JsonString("dollar"), new JsonString("x")),
+                        JsonArray.of(new JsonString("at"), new JsonString("arr")))));
+    }
+
+    @Test
+    void c18_backquoteMapWithDollarValue() {
+        assertThat(parse("`{name: $n}"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("backquote"),
+                    JsonArray.of(
+                        new JsonString("map"),
+                        JsonArray.of(
+                            new JsonString("name"),
+                            JsonArray.of(new JsonString("dollar"), new JsonString("n"))))));
+    }
+
+    @Test
+    void c19_dollarOutsideBackquoteFails() {
+        assertThatThrownBy(() -> parse("$x"))
+            .isInstanceOf(ParserException.class)
+            .hasMessageContaining("$ outside backquote context");
+    }
 }
