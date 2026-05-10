@@ -11,6 +11,7 @@ import org.bsdclub.furuta.jalo.json.JsonObject;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
+import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.junit.jupiter.api.Test;
@@ -259,7 +260,11 @@ class EvaluatorTest {
     @Test
     void q2_evalQuoteShorthandListOfInts() {
         assertThat(evaluator.eval(parse("'(1i 2i 3i)")))
-            .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0)));
+            .isEqualTo(
+                JsonArray.of(
+                    JsonArray.of(new JsonString("int"), new JsonNumber(1.0)),
+                    JsonArray.of(new JsonString("int"), new JsonNumber(2.0)),
+                    JsonArray.of(new JsonString("int"), new JsonNumber(3.0))));
     }
 
     @Test
@@ -271,6 +276,6 @@ class EvaluatorTest {
     @Test
     void q4_identifierInternalQuoteRemainsUsable() {
         evaluator.eval(parse("(def foo'bar 42i)"));
-        assertThat(evaluator.eval(parse("foo'bar"))).isEqualTo(new JsonNumber(42.0));
+        assertThat(evaluator.eval(parse("foo'bar"))).isEqualTo(new JaloInt(42));
     }
 }

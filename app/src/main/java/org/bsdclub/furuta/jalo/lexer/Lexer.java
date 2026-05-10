@@ -74,6 +74,10 @@ public final class Lexer {
                     advance();
                     tokens.add(new Token.Comma(startLine, startCol));
                 }
+                case '\'' -> {
+                    advance();
+                    tokens.add(new Token.Quote(startLine, startCol));
+                }
                 case '`' -> {
                     advance();
                     tokens.add(new Token.Backquote(startLine, startCol));

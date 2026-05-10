@@ -56,7 +56,7 @@ class PipelineTest {
 
     @Test
     void p9_lexError() {
-        assertFailureKind("'abc'", EvalResult.ErrorKind.LEX);
+        assertFailureKind("#abc", EvalResult.ErrorKind.LEX);
     }
 
     @Test
