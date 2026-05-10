@@ -8,6 +8,7 @@ import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonBool;
 import org.bsdclub.furuta.jalo.json.JsonNull;
 import org.bsdclub.furuta.jalo.json.JsonNumber;
+import org.bsdclub.furuta.jalo.json.JsonObject;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
 import org.bsdclub.furuta.jalo.value.JaloInt;
@@ -76,6 +77,7 @@ public final class Evaluator {
 
         return switch (op.value()) {
             case "quote" -> evalQuote(form);
+            case "backquote" -> evalBackquote(form, env);
             case "if" -> evalIf(form, env);
             case "declare" -> evalDeclare(form);
             case "def" -> evalDef(form, env);
@@ -102,6 +104,95 @@ public final class Evaluator {
             throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for quote"));
         }
         return (JaloValue) form.get(1);
+    }
+
+    /**
+     * Evaluates a {@code backquote} form, constructing a JSON value from a template pattern.
+     *
+     * <p>Supports {@code (dollar e)} for expression embedding,
+     * {@code (at e)} for array splicing, and {@code (percent e)} for map merging (SPEC §5.2).
+     *
+     * @param form  the AST node {@code ["backquote", pattern]}; must have exactly 2 elements
+     * @param env   the current evaluation environment
+     * @return the constructed JSON value
+     * @throws JaloEffectSignal with effect {@code "error"} if the form is malformed
+     *                          or a splice target has an unexpected type
+     */
+    private JaloValue evalBackquote(JsonArray form, Environment env) {
+        if (form.size() != 2) {
+            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for backquote"));
+        }
+        return constructFromPattern(form.get(1), env);
+    }
+
+    private JsonValue constructFromPattern(JsonValue node, Environment env) {
+        if (!(node instanceof JsonArray form)) {
+            return node;
+        }
+        if (form.size() == 0) {
+            return form;
+        }
+        if (!(form.get(0) instanceof JsonString opNode)) {
+            return form;
+        }
+
+        return switch (opNode.value()) {
+            case "dollar" -> {
+                if (form.size() != 2) {
+                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("Malformed dollar form"));
+                }
+                yield toJsonValue(eval(form.get(1), env));
+            }
+            case "int", "long" -> toJsonValue(eval(form, env));
+            case "array" -> spliceArray(form, env);
+            case "map" -> spliceMap(form, env);
+            default -> form;
+        };
+    }
+
+    private JsonArray spliceArray(JsonArray form, Environment env) {
+        JsonArray result = JsonArray.empty();
+        for (int i = 1; i < form.size(); i++) {
+            JsonValue elt = form.get(i);
+            if (elt instanceof JsonArray inner
+                    && inner.size() == 2
+                    && inner.get(0) instanceof JsonString op
+                    && "at".equals(op.value())) {
+                JaloValue arr = eval(inner.get(1), env);
+                if (!(arr instanceof JsonArray a)) {
+                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("splice target must be array"));
+                }
+                for (int j = 0; j < a.size(); j++) {
+                    result = result.append(a.get(j));
+                }
+            } else {
+                result = result.append(constructFromPattern(elt, env));
+            }
+        }
+        return result;
+    }
+
+    private JsonObject spliceMap(JsonArray form, Environment env) {
+        JsonObject result = JsonObject.empty();
+        for (int i = 1; i < form.size(); i++) {
+            JsonValue ent = form.get(i);
+            if (!(ent instanceof JsonArray entry) || entry.size() < 2) {
+                continue;
+            }
+            JsonValue head = entry.get(0);
+            if (head instanceof JsonString op && "percent".equals(op.value())) {
+                JaloValue extra = eval(entry.get(1), env);
+                if (!(extra instanceof JsonObject obj)) {
+                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("percent splice target must be map"));
+                }
+                for (Map.Entry<String, JsonValue> e : obj.entries().entrySet()) {
+                    result = result.put(e.getKey(), e.getValue());
+                }
+            } else if (head instanceof JsonString key) {
+                result = result.put(key.value(), constructFromPattern(entry.get(1), env));
+            }
+        }
+        return result;
     }
 
     private JaloValue evalIf(JsonArray form, Environment env) {
@@ -381,6 +472,19 @@ public final class Evaluator {
             return new Numeric(n.value(), false, true);
         }
         throw new JaloEffectSignal(new JsonString("error"), new JsonString("Expected number"));
+    }
+
+    private JsonValue toJsonValue(JaloValue value) {
+        if (value instanceof JsonValue jsonValue) {
+            return jsonValue;
+        }
+        if (value instanceof JaloInt n) {
+            return new JsonNumber(n.value());
+        }
+        if (value instanceof JaloLong n) {
+            return new JsonNumber(n.value());
+        }
+        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Backquote can only embed JSON-compatible values"));
     }
 
     private record Numeric(double asDouble, boolean isDouble, boolean isLong) {
