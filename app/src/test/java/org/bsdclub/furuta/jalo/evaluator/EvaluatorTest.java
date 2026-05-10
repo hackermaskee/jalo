@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.bsdclub.furuta.jalo.json.JsonBool;
+import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonNull;
 import org.bsdclub.furuta.jalo.json.JsonNumber;
+import org.bsdclub.furuta.jalo.json.JsonObject;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
@@ -171,5 +173,81 @@ class EvaluatorTest {
         assertThat(derived.lookup("y")).isEqualTo(new JsonNumber(2));
         assertThatThrownBy(() -> original.lookup("y"))
             .isInstanceOf(JaloEffectSignal.class);
+    }
+
+    @Test
+    void mA1_backquoteLiteralNumber() {
+        assertThat(evaluator.eval(parse("(backquote 42i)"))).isEqualTo(new JsonNumber(42.0));
+    }
+
+    @Test
+    void mA2_backquoteLiteralString() {
+        assertThat(evaluator.eval(parse("(backquote \"hello\")"))).isEqualTo(new JsonString("hello"));
+    }
+
+    @Test
+    void mA3_backquoteLiteralNull() {
+        assertThat(evaluator.eval(parse("(backquote #null)"))).isEqualTo(JsonNull.INSTANCE);
+    }
+
+    @Test
+    void mA4_backquoteDollarVariableEmbed() {
+        assertThat(evaluator.eval(parse("(let [x 5i] (backquote (dollar x)))"))).isEqualTo(new JsonNumber(5.0));
+    }
+
+    @Test
+    void mA5_backquoteArrayWithDollars() {
+        assertThat(evaluator.eval(parse("(let [x 1i y 2i] (backquote (array (dollar x) (dollar y))))")))
+            .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0)));
+    }
+
+    @Test
+    void mA6_backquoteArrayMixedLiteralAndDollar() {
+        assertThat(evaluator.eval(parse("(let [x 5i] (backquote (array 1i (dollar x) 3i)))")))
+            .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(5.0), new JsonNumber(3.0)));
+    }
+
+    @Test
+    void mA7_backquoteAtSpliceInArray() {
+        assertThat(evaluator.eval(parse("(let [arr (array 2i 3i)] (backquote (array 1i (at arr) 4i)))")))
+            .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0), new JsonNumber(4.0)));
+    }
+
+    @Test
+    void mA8_backquoteAtSpliceEmptyArray() {
+        assertThat(evaluator.eval(parse("(let [arr (array)] (backquote (array 0i (at arr) 1i)))")))
+            .isEqualTo(JsonArray.of(new JsonNumber(0.0), new JsonNumber(1.0)));
+    }
+
+    @Test
+    void mA9_backquoteAtSpliceNonArrayFails() {
+        assertThatThrownBy(() -> evaluator.eval(parse("(let [x 5i] (backquote (array (at x))))")))
+            .isInstanceOf(JaloEffectSignal.class)
+            .satisfies(ex -> {
+                JaloEffectSignal sig = (JaloEffectSignal) ex;
+                assertThat(sig.tag()).isEqualTo(new JsonString("error"));
+                assertThat(sig.value()).isEqualTo(new JsonString("splice target must be array"));
+            });
+    }
+
+    @Test
+    void mA10_backquoteMapLiteralKeyDollarValue() {
+        assertThat(evaluator.eval(parse("(let [v 1i] (backquote (map (\"k\" (dollar v)))))")))
+            .isEqualTo(JsonObject.empty().put("k", new JsonNumber(1.0)));
+    }
+
+    @Test
+    void mA11_backquoteMapWithPercentSplice() {
+        assertThat(evaluator.eval(parse("(let [extra (map (\"a\" 1i))] (backquote (map (\"b\" 2i) (percent extra))))")))
+            .isEqualTo(JsonObject.empty().put("b", new JsonNumber(2.0)).put("a", new JsonNumber(1.0)));
+    }
+
+    @Test
+    void mA12_backquoteNestedArrayOfMaps() {
+        assertThat(evaluator.eval(parse("(backquote (array (map (\"x\" 1i)) (map (\"x\" 2i))))")))
+            .isEqualTo(
+                JsonArray.of(
+                    JsonObject.empty().put("x", new JsonNumber(1.0)),
+                    JsonObject.empty().put("x", new JsonNumber(2.0))));
     }
 }
