@@ -209,13 +209,13 @@ class EvaluatorTest {
 
     @Test
     void mA7_backquoteAtSpliceInArray() {
-        assertThat(evaluator.eval(parse("(let [arr (array 2i 3i)] (backquote (array 1i (at arr) 4i)))")))
+        assertThat(evaluator.eval(parse("(let [arr (backquote (array 2i 3i))] (backquote (array 1i (at arr) 4i)))")))
             .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0), new JsonNumber(4.0)));
     }
 
     @Test
     void mA8_backquoteAtSpliceEmptyArray() {
-        assertThat(evaluator.eval(parse("(let [arr (array)] (backquote (array 0i (at arr) 1i)))")))
+        assertThat(evaluator.eval(parse("(let [arr (backquote (array))] (backquote (array 0i (at arr) 1i)))")))
             .isEqualTo(JsonArray.of(new JsonNumber(0.0), new JsonNumber(1.0)));
     }
 
@@ -238,7 +238,7 @@ class EvaluatorTest {
 
     @Test
     void mA11_backquoteMapWithPercentSplice() {
-        assertThat(evaluator.eval(parse("(let [extra (map (\"a\" 1i))] (backquote (map (\"b\" 2i) (percent extra))))")))
+        assertThat(evaluator.eval(parse("(let [extra (backquote (map (\"a\" 1i)))] (backquote (map (\"b\" 2i) (percent extra))))")))
             .isEqualTo(JsonObject.empty().put("b", new JsonNumber(2.0)).put("a", new JsonNumber(1.0)));
     }
 
