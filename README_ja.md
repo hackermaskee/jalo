@@ -43,6 +43,9 @@ jalo> :quit
 (+ x 5)                            => 15
 (let [a 5 b 3] (- a b))            => 2
 (quote [1 2 3])                    => [1,2,3]
+(quote foo)                        => "foo"
+'foo                               => "foo"
+'(1 2 3)                           => [1,2,3]
 (if #true 1 0)                     => 1
 (fn [x] (* x x))                   => <function value>
 (handle (raise (quote e) 42) [(quote e) v v]) => 42
@@ -84,6 +87,7 @@ jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をし�
 | リスト区切り | `(...)` のみ (CL/Scheme) | `(...)` と `[...]` は等価 | JSON 配列との互換性のため |
 | 真偽値リテラル | `t` / `nil` (CL) | `#true` / `#false` | null や空リストとは別個 |
 | 数値型サフィックス | 暗黙的 | `42i` / `42L` / `3.14` | SPEC §2.1 の 3 つの数値型 |
+| quote 略記 | `(quote expr)` | `'<expr>` も利用可能 | 伝統的 Lisp 記法をサポート |
 
 ### 補足
 
@@ -91,6 +95,8 @@ jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をし�
   すべての値が JSON を経由するため、文脈に応じて読みやすい方を使ってください。
 - **数値型サフィックス** (`42i`、`42L`): 整数と長整数リテラルには `i` または `L` サフィックスが必要です。
   型システムの詳細は SPEC §2.1 を、リテラル構文は SPEC §3 をご覧ください。
+- **quote 略記**: jalo では伝統的な `'<expr>` 記法を `(quote expr)` の同義として利用できます。
+  識別子中の `'`（例: `foo'bar`）は識別子文字として扱われ、Haskell/SML 風プライム識別子と互換です。
 
 参照: [SPEC §3 — 構文](SPEC.md) / [SPEC §4.1 — 評価規則](SPEC.md)
 
