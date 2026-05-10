@@ -1,5 +1,7 @@
 package org.bsdclub.furuta.jalo.syntaxcheck;
 
+import java.util.HashSet;
+import java.util.Set;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
@@ -58,6 +60,7 @@ public final class SyntaxChecker {
             case "let" -> checkLet(array, scope, false);
             case "let*" -> checkLet(array, scope, true);
             case "letrec" -> checkLetRec(array, scope);
+            case "match" -> checkMatch(array, scope);
             default -> {
                 for (int i = 1; i < array.size(); i++) {
                     checkValue(array.get(i), scope);
@@ -294,5 +297,43 @@ public final class SyntaxChecker {
             checkValue(form.get(i), recScope);
         }
         return scope;
+    }
+
+    private Scope checkMatch(JsonArray form, Scope scope) {
+        if (form.size() < 4 || ((form.size() - 2) % 2 != 0)) {
+            throw new SyntaxCheckException("Wrong arity for match: " + form);
+        }
+        checkValue(form.get(1), scope);
+        for (int i = 2; i < form.size(); i += 2) {
+            JsonValue pattern = form.get(i);
+            checkPattern(pattern);
+            Scope branchScope = scope.bindAll(collectPatternBindings(pattern));
+            checkValue(form.get(i + 1), branchScope);
+        }
+        return scope;
+    }
+
+    private Set<String> collectPatternBindings(JsonValue pattern) {
+        Set<String> names = new HashSet<>();
+        collectPatternBindingsInto(pattern, names);
+        return names;
+    }
+
+    private void collectPatternBindingsInto(JsonValue node, Set<String> names) {
+        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+            return;
+        }
+        switch (op.value()) {
+            case "dollar", "at", "percent" -> {
+                if (array.size() == 2 && array.get(1) instanceof JsonString name && !"_".equals(name.value())) {
+                    names.add(name.value());
+                }
+            }
+            default -> {
+                for (int i = 1; i < array.size(); i++) {
+                    collectPatternBindingsInto(array.get(i), names);
+                }
+            }
+        }
     }
 }

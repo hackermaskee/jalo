@@ -1,5 +1,6 @@
 package org.bsdclub.furuta.jalo.syntaxcheck;
 
+import java.util.Set;
 import org.organicdesign.fp.collections.PersistentHashSet;
 
 /**
@@ -34,6 +35,20 @@ final class Scope {
      */
     Scope withBinding(String name) {
         return new Scope(bound.put(name), declared);
+    }
+
+    /**
+     * Returns a new scope with all provided identifiers bound.
+     *
+     * @param names identifiers to bind
+     * @return copied scope containing all provided bindings
+     */
+    Scope bindAll(Set<String> names) {
+        Scope result = this;
+        for (String name : names) {
+            result = result.withBinding(name);
+        }
+        return result;
     }
 
     /**

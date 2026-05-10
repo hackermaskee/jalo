@@ -46,6 +46,20 @@ public final class Environment {
     }
 
     /**
+     * Returns a derived environment with multiple additional local bindings.
+     *
+     * @param bindings local bindings to add
+     * @return derived environment containing all provided bindings
+     */
+    public Environment bindAll(PersistentHashMap<String, JaloValue> bindings) {
+        Environment result = this;
+        for (Map.Entry<String, JaloValue> entry : bindings.entrySet()) {
+            result = result.bind(entry.getKey(), entry.getValue());
+        }
+        return result;
+    }
+
+    /**
      * Defines or replaces a global binding.
      *
      * @param name global name
