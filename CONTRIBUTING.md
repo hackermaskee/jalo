@@ -144,7 +144,7 @@ Design by Contract (DbC, Bertrand Meyer) を意識して記述する。
 ```
 
 Layer 名は `DESIGN.md` §1 のアーキテクチャ表に合わせる:
-Parser / JSON Model / SyntaxChecker / Evaluator / Runtime / Stdlib
+Parser / JSON Model / SyntaxChecker / Evaluator / REPL / Runtime / Stdlib
 
 ### `@implSpec` / `@implNote` タグ
 Java 9+ タグを採用する。
