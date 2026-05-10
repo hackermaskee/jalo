@@ -250,4 +250,27 @@ class EvaluatorTest {
                     JsonObject.empty().put("x", new JsonNumber(1.0)),
                     JsonObject.empty().put("x", new JsonNumber(2.0))));
     }
+
+    @Test
+    void q1_evalQuoteShorthandIdentifier() {
+        assertThat(evaluator.eval(parse("'foo"))).isEqualTo(new JsonString("foo"));
+    }
+
+    @Test
+    void q2_evalQuoteShorthandListOfInts() {
+        assertThat(evaluator.eval(parse("'(1i 2i 3i)")))
+            .isEqualTo(JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0)));
+    }
+
+    @Test
+    void q3_quoteShorthandSkipsEvaluationInside() {
+        assertThat(evaluator.eval(parse("(let [x 10i] '(x x))")))
+            .isEqualTo(JsonArray.of(new JsonString("x"), new JsonString("x")));
+    }
+
+    @Test
+    void q4_identifierInternalQuoteRemainsUsable() {
+        evaluator.eval(parse("(def foo'bar 42i)"));
+        assertThat(evaluator.eval(parse("foo'bar"))).isEqualTo(new JsonNumber(42.0));
+    }
 }
