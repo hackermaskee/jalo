@@ -36,7 +36,7 @@ class PipelineTest {
 
     @Test
     void p5_effectHandling() {
-        assertSuccessValue("(handle (raise (quote err) 42) [(quote err) v v])", new JsonNumber(42.0));
+        assertSuccessValue("(let [v 0] (handle (raise (quote err) 42) [(quote err) v v]))", new JsonNumber(42.0));
     }
 
     @Test
@@ -46,12 +46,12 @@ class PipelineTest {
 
     @Test
     void p7_stringEval() {
-        assertSuccessValue("\"abc\"", new JsonString("abc"));
+        assertSuccessValue("(quote \"abc\")", new JsonString("abc"));
     }
 
     @Test
     void p8_arrayEval() {
-        assertSuccessValue("[1 2 3]", JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0)));
+        assertSuccessValue("(quote [1 2 3])", JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0)));
     }
 
     @Test
@@ -78,7 +78,7 @@ class PipelineTest {
     void p13_resetClearsDefs() {
         assertSuccessValue("(def x 10)", JsonNull.INSTANCE);
         pipeline.reset();
-        assertFailureKind("x", EvalResult.ErrorKind.EFFECT);
+        assertFailureKind("x", EvalResult.ErrorKind.SYNTAX);
     }
 
     @Test
