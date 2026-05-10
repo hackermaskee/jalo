@@ -697,3 +697,43 @@ jalo は jq との互換性を付加価値として持つ。
 - すべての jq 機能を網羅する必要はなく、代表的なフィルタ機能を優先する
 - jq プリミティブは jalo ビルトインでなく、jalo で定義されたライブラリとして実装してよい
 - jq 構文上の多義的記号 (例: `[]`) は、AST 上では別ノードとして区別する
+
+## 6. REPL & CLI
+
+### 6.1 REPL Commands
+
+- `:quit` / `:q`: exit REPL loop
+- `:reset`: clear evaluator environment (e.g., bindings created by `def`)
+
+### 6.2 Multi-line Input
+
+REPL accumulates lines while bracket depth is unbalanced.
+Target brackets are `()`, `[]`, and `{}`.
+A complete expression is evaluated when total depth returns to zero or below.
+
+### 6.3 Error Display Format
+
+REPL and CLI print errors using this format:
+
+```text
+<KIND> error at line <line>:<col>: <message>
+```
+
+If line/column is unavailable, positional segment is omitted.
+`KIND` is one of: `LEX`, `PARSE`, `SYNTAX`, `EFFECT`, `INTERNAL`.
+
+### 6.4 CLI Modes
+
+`jalo` has three command-line modes:
+
+1. No arguments: interactive REPL mode
+2. `-e <expr>`: evaluate one expression and exit
+3. `<file>`: read source from file, evaluate once, and exit
+
+Any other argument pattern prints usage and exits with code `2`.
+
+### 6.5 Exit Codes
+
+- `0`: success
+- `1`: evaluation failure or I/O error
+- `2`: invalid CLI usage
