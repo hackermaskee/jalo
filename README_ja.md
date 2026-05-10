@@ -100,6 +100,25 @@ jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をし�
 - 実装設計: `docs/DESIGN.md`
 - コントリビュート規則: `CONTRIBUTING.md`
 
+## トラブルシュート
+
+### `./gradlew run` で REPL が即終了する
+
+Gradle の daemon が標準入力 (stdin) を JVM プロセスに転送しない場合に発生します。
+`app/build.gradle` に `standardInput = System.in` を追加済みですが、
+それでも問題が続く場合は `--console=plain` オプションをお試しください:
+
+```bash
+./gradlew run --console=plain
+```
+
+または、スタンドアロン配布物をビルドして直接実行する方法もあります:
+
+```bash
+./gradlew installDist
+./app/build/install/app/bin/app
+```
+
 ## ビルド & テスト
 
 ```bash

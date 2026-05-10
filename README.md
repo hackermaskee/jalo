@@ -100,6 +100,25 @@ See also: [SPEC §3 — Syntax](SPEC.md) and [SPEC §4.1 — Evaluation Rules](S
 - Implementation design: `docs/DESIGN.md`
 - Contribution rules: `CONTRIBUTING.md`
 
+## Troubleshooting
+
+### REPL exits immediately after `./gradlew run`
+
+This happens if your Gradle version does not forward stdin to the JVM process.
+The fix is already included in `app/build.gradle` (`standardInput = System.in`).
+If you still see the issue, pass `--console=plain` to suppress Gradle's rich console:
+
+```bash
+./gradlew run --console=plain
+```
+
+Alternatively, build a standalone distribution and run it directly:
+
+```bash
+./gradlew installDist
+./app/build/install/app/bin/app
+```
+
 ## Build & Test
 
 ```bash
