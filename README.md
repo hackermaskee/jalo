@@ -1,5 +1,7 @@
 # jalo — JSON And Lisp Operations
 
+> 日本語版: [README_ja.md](README_ja.md)
+
 jalo is a Lisp dialect whose AST is a JSON model.
 It provides a small but practical command-line runtime with three execution modes:
 interactive REPL, one-shot expression evaluation, and file evaluation.
@@ -66,6 +68,31 @@ File mode:
 ```bash
 ./gradlew run --args="examples/hello.jal"
 ```
+
+## Notes for traditional Lisp users
+
+jalo intentionally diverges from Common Lisp / Scheme conventions.
+Below are the key differences to keep in mind:
+
+| Aspect | Traditional Lisp | jalo | Why |
+|--------|------------------|------|-----|
+| AST representation | S-expression / cons cell | JSON model | Homoiconic over JSON |
+| Dotted pair | `(a . b)` available | not available | Map-based structures use `{}` |
+| Symbols | First-class type | not present | JSON has no symbol type |
+| String evaluation | Quoted literal | Variable reference | Strings act as identifiers |
+| Map key strings | Sometimes evaluated | Never evaluated | Predictable JSON semantics |
+| List delimiters | `(...)` only (CL/Scheme) | `(...)` and `[...]` equivalent | JSON array compatibility |
+| Boolean literals | `t` / `nil` (CL) | `#true` / `#false` | Distinct from null and empty list |
+| Numeric type tags | implicit | `42i` / `42L` / `3.14` | Three numeric types per SPEC §2.1 |
+
+### Notes
+
+- **`(...)` and `[...]` equivalence**: jalo treats both as ordered sequences (JSON arrays),
+  because all values must round-trip through JSON. Use whichever reads more naturally in context.
+- **Numeric type tags** (`42i`, `42L`): integer and long literals require an `i` or `L` suffix.
+  See SPEC §2.1 for the full type system and SPEC §3 for the literal syntax.
+
+See also: [SPEC §3 — Syntax](SPEC.md) and [SPEC §4.1 — Evaluation Rules](SPEC.md).
 
 ## Documentation Links
 
