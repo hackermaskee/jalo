@@ -166,6 +166,34 @@ Java 9+ タグを採用する。
 | `{@link}` | 関連クラス・メソッドへのリンク |
 | `{@code}` | コード断片のインライン表示 |
 
+## 3.7 マージゲート規律 (内部規則)
+
+### ① 二重ゲート原則
+- jalo の PR は「軍師 approve + CI green」が揃った時点で merge 可能とする。
+- merge 実行は家老が `gh pr merge --squash` で行う。
+- §3.5 (commit 規約) は人間規律、§3.6 (Javadoc 規約) は機械強制 (checkstyle)、§3.7 (本節) は両者を統合する merge ゲート規律と位置づける。
+
+### ② GitHub 側強制との関係
+- §7 main 保護ルールの `required_approving_review_count` は `0` とする。
+- 理由: 自動化 user が PR 作成する場合、GitHub の自己 PR 承認禁止と衝突するため。
+- 機械強制は CI green (status check) に絞り、人間 review は本節の内部規則で運用する。
+
+### ③ 殿の自己 PR ケース
+- CI green は例外なく必須とする。
+- 軍師 approve は推奨とし、以下カテゴリは skip 可 (PR description に明記必須)。
+  1. docs only PR (実装変更ゼロ)
+  2. 設定変更のみ PR (build.gradle / CI workflow 等)
+  3. 緊急 hotfix (運用障害復旧)
+  4. trivial 修正 (typo / コメント修正等)
+- 実装変更を含む場合は skip 不可とする。
+- skip 時 PR description 文例:
+  `self-approved by lord (gunshi review skipped per §3.7: <カテゴリ>)`
+
+### ④ 違反検出と事後対応
+- 家老は merge 前に軍師 approve を確認する (dashboard または `queue/reports/gunshi_report.yaml`)。
+- 軍師は cmd 完了 cross-check として、merge 済 PR に approve が揃っているか確認する。
+- 違反検出時は `dashboard.md` の 🚨要対応 に記録し、再発防止アクションを付記する。
+
 ## 4. マージ方式
 - Default: Squash merge（家老が `gh pr merge --squash` を実施）
 - 理由: 足軽の WIP commit を整理し、`main` の履歴を clean に保つ
@@ -208,7 +236,8 @@ git push / gh pr create / merge を代行します。
 実施者: 殿（GitHub Settings → Branches → Add rule for main）
 
 - [ ] Require a pull request before merging: ON
-- [ ] Require approvals: 1 (軍師 approve 必須)
+- [ ] Require approvals: 0 (GitHub 強制なし、§3.7 内部規則で運用)
+  - cmd_409 変更理由: 自動化 user の自己 PR 承認禁止衝突を避けるため、1 → 0 に変更。
 - [ ] Dismiss stale pull request approvals when new commits are pushed: ON
 - [ ] Require linear history: ON (merge commit 混入防止)
 - [ ] Do not allow bypassing the above settings: ON (殿のみ emergency override)
@@ -218,6 +247,24 @@ GitHub Repo Settings 推奨:
 - Allow merge commits: OFF
 - Allow squash: ON
 - Allow rebase: ON
+
+branch protection 変更手順:
+1. `gh api` を使う例 (殿が手動実施):
+```bash
+gh api \
+  --method PUT \
+  -H "Accept: application/vnd.github+json" \
+  /repos/hackermaskee/jalo/branches/main/protection \
+  -F required_status_checks.strict=true \
+  -F required_status_checks.contexts[]='build-and-test' \
+  -F enforce_admins=true \
+  -F required_pull_request_reviews.required_approving_review_count=0 \
+  -F required_pull_request_reviews.dismiss_stale_reviews=true \
+  -F restrictions=
+```
+2. GitHub Web UI を使う例:
+   `Settings → Branches → main rule Edit` で `Require approvals` を `0` に変更。
+3. 家老 pane から直接変更してはならない。main 保護設定の実施権限は殿のみ。
 
 ## 8. トラブルシュート
 (a) 家老 pane で git push 失敗（ssh-agent 未ロード）:
