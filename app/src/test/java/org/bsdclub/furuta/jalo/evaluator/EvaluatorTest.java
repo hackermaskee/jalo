@@ -67,11 +67,29 @@ class EvaluatorTest {
             .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JsonString("y")));
     }
 
-    @Test void eB4_nestedInnerHandleWins() { assertThat(evaluator.eval(parse("(handle (handle (raise (quote x) 1) [(quote x) v v]) [(quote x) v 999])"))).isEqualTo(new JsonNumber(1.0)); }
-    @Test void eB5_nestedOuterHandleCatchesRethrow() { assertThat(evaluator.eval(parse("(handle (handle (raise (quote y) 1) [(quote x) v v]) [(quote y) v 999])"))).isEqualTo(new JsonNumber(999.0)); }
+    @Test
+    void eB4_nestedInnerHandleWins() {
+        assertThat(evaluator.eval(parse("(handle (handle (raise (quote x) 1) [(quote x) v v]) [(quote x) v 999])")))
+            .isEqualTo(new JsonNumber(1.0));
+    }
+
+    @Test
+    void eB5_nestedOuterHandleCatchesRethrow() {
+        assertThat(evaluator.eval(parse("(handle (handle (raise (quote y) 1) [(quote x) v v]) [(quote y) v 999])")))
+            .isEqualTo(new JsonNumber(999.0));
+    }
     @Test void eB6_errorBuiltinEffectCaught() { assertThat(evaluator.eval(parse("(handle (error (quote msg)) [(quote error) e e])"))).isEqualTo(new JsonString("msg")); }
-    @Test void eB7_unboundVariableRaisedAsErrorEffect() { assertThat(evaluator.eval(parse("(handle foo [(quote error) e e])"))).isEqualTo(new JsonString("Unbound variable: foo")); }
-    @Test void eB8_divisionByZeroRaisedAsErrorEffect() { assertThat(evaluator.eval(parse("(handle (/ 1i 0i) [(quote error) e e])"))).isEqualTo(new JsonString("Division by zero")); }
+    @Test
+    void eB7_unboundVariableRaisedAsErrorEffect() {
+        assertThat(evaluator.eval(parse("(handle foo [(quote error) e e])")))
+            .isEqualTo(new JsonString("Unbound variable: foo"));
+    }
+
+    @Test
+    void eB8_divisionByZeroRaisedAsErrorEffect() {
+        assertThat(evaluator.eval(parse("(handle (/ 1i 0i) [(quote error) e e])")))
+            .isEqualTo(new JsonString("Division by zero"));
+    }
 
     @Test
     void eB9_handleRaisingAnotherSignalPropagates() {
@@ -91,14 +109,35 @@ class EvaluatorTest {
     }
 
     @Test void eC1_declareIsNoOp() { assertThat(evaluator.eval(parse("(declare foo)"))).isEqualTo(JsonNull.INSTANCE); }
-    @Test void eC2_defThenAdd() { evaluator.eval(parse("(def x 1)")); evaluator.eval(parse("(def y 2)")); assertThat(evaluator.eval(parse("(+ x y)"))).isEqualTo(new JsonNumber(3.0)); }
-    @Test void eC3_mutualRecursionWithDeclareAndDef() { assertThat(evaluator.eval(parse("(letrec [even? (fn [n] (if (= n 0) #true (odd? (- n 1)))) odd? (fn [n] (if (= n 0) #false (even? (- n 1))))] (even? 4))"))).isEqualTo(JsonBool.TRUE); }
+    @Test
+    void eC2_defThenAdd() {
+        evaluator.eval(parse("(def x 1)"));
+        evaluator.eval(parse("(def y 2)"));
+        assertThat(evaluator.eval(parse("(+ x y)"))).isEqualTo(new JsonNumber(3.0));
+    }
+
+    @Test
+    void eC3_mutualRecursionWithDeclareAndDef() {
+        assertThat(
+            evaluator.eval(
+                parse("(letrec [even? (fn [n] (if (= n 0) #true (odd? (- n 1)))) odd? (fn [n] (if (= n 0) #false (even? (- n 1))))] (even? 4))")))
+            .isEqualTo(JsonBool.TRUE);
+    }
     @Test void eC4_addDouble() { assertThat(evaluator.eval(parse("(+ 1 2)"))).isEqualTo(new JsonNumber(3.0)); }
     @Test void eC5_addIntLongPromotion() { assertThat(evaluator.eval(parse("(+ 1i 2l)"))).isEqualTo(new JaloLong(3L)); }
     @Test void eC6_addIntDoublePromotion() { assertThat(evaluator.eval(parse("(+ 1i 2.0)"))).isEqualTo(new JsonNumber(3.0)); }
     @Test void eC7_integerDivideByZeroRaisesError() { assertThat(evaluator.eval(parse("(handle (/ 1i 0i) [(quote error) e e])"))).isEqualTo(new JsonString("Division by zero")); }
-    @Test void eC8_equalsAndNaN() { assertThat(evaluator.eval(parse("(= 1 1)"))).isEqualTo(JsonBool.TRUE); assertThat(evaluator.eval(parse("(= (/ 0.0 0.0) (/ 0.0 0.0))"))).isEqualTo(JsonBool.FALSE); }
-    @Test void eC9_typePredicates() { assertThat(evaluator.eval(parse("(number? 42)"))).isEqualTo(JsonBool.TRUE); assertThat(evaluator.eval(parse("(string? 42)"))).isEqualTo(JsonBool.FALSE); }
+    @Test
+    void eC8_equalsAndNaN() {
+        assertThat(evaluator.eval(parse("(= 1 1)"))).isEqualTo(JsonBool.TRUE);
+        assertThat(evaluator.eval(parse("(= (/ 0.0 0.0) (/ 0.0 0.0))"))).isEqualTo(JsonBool.FALSE);
+    }
+
+    @Test
+    void eC9_typePredicates() {
+        assertThat(evaluator.eval(parse("(number? 42)"))).isEqualTo(JsonBool.TRUE);
+        assertThat(evaluator.eval(parse("(string? 42)"))).isEqualTo(JsonBool.FALSE);
+    }
     @Test void eC10_typeDouble() { assertThat(evaluator.eval(parse("(type 42)"))).isEqualTo(new JsonString("double")); }
     @Test void eC11_typeString() { assertThat(evaluator.eval(parse("(type (quote \"hello\"))"))).isEqualTo(new JsonString("string")); }
     @Test void eC12_integrationHandle() { assertThat(evaluator.eval(parse("(let [x 1i] (handle (/ x 0i) [(quote error) e e]))"))).isEqualTo(new JsonString("Division by zero")); }

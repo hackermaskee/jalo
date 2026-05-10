@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="error"/>
+  <property name="fileExtensions" value="java"/>
+
+  <module name="LineLength">
+    <property name="max" value="180"/>
+  </module>
+
+  <module name="TreeWalker">
+    <!-- Token.java nested records: sealed interface 設計尊重 suppression -->
+    <module name="SuppressionXpathSingleFilter">
+      <property name="files" value="Token\.java"/>
+      <property name="checks" value="MissingJavadocType"/>
+      <property name="query" value="//RECORD_DEF"/>
+    </module>
+
+    <!-- Unused detection (殿指摘 4 直撃) -->
+    <module name="UnusedImports">
+      <property name="processJavadoc" value="true"/>
+    </module>
+    <module name="UnusedLocalVariable"/>
+    <module name="RedundantImport"/>
+    <module name="AvoidStarImport"/>
+
+    <!-- Javadoc lint (cmd_405 §3.6 規約の機械 enforcement) -->
+    <module name="MissingJavadocType">
+      <property name="scope" value="public"/>
+    </module>
+    <module name="MissingJavadocMethod">
+      <property name="scope" value="public"/>
+      <property name="allowMissingPropertyJavadoc" value="false"/>
+      <property name="ignoreMethodNamesRegex" value="^(equals|hashCode|toString)$"/>
+    </module>
+    <module name="JavadocMethod">
+      <property name="validateThrows" value="true"/>
+      <property name="allowMissingParamTags" value="false"/>
+      <property name="allowMissingReturnTag" value="false"/>
+    </module>
+    <module name="JavadocType"/>
+    <module name="JavadocStyle">
+      <property name="checkFirstSentence" value="true"/>
+    </module>
+    <module name="JavadocBlockTagLocation"/>
+    <module name="InvalidJavadocPosition"/>
+    <module name="SummaryJavadoc"/>
+
+    <!-- Naming conventions -->
+    <module name="PackageName">
+      <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+    </module>
+    <module name="TypeName"/>
+    <module name="MemberName"/>
+    <module name="ParameterName"/>
+    <module name="LocalVariableName"/>
+    <module name="ConstantName"/>
+
+    <!-- Style basics -->
+    <module name="WhitespaceAfter"/>
+    <module name="WhitespaceAround">
+      <property name="allowEmptyTypes" value="true"/>
+    </module>
+    <module name="RightCurly"/>
+    <module name="EmptyBlock"/>
+    <module name="PackageDeclaration"/>
+  </module>
+</module>
