@@ -1,6 +1,7 @@
 package org.bsdclub.furuta.jalo.evaluator;
 
 import java.util.List;
+import org.bsdclub.furuta.jalo.evaluator.builtins.Callable;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.json.JsonValue;
@@ -16,7 +17,7 @@ import org.bsdclub.furuta.jalo.value.JaloValue;
  * @see Environment
  * @see <a href="../../../docs/SPEC.md#42">SPEC §4.2 fn special form</a>
  */
-public final class JaloFunction implements JaloValue {
+public final class JaloFunction implements JaloValue, Callable {
     private final List<String> params;
     private final String restParam;
     private final List<JsonValue> body;
