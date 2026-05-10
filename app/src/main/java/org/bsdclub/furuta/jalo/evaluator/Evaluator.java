@@ -5,6 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinFunction;
+import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinRegistry;
+import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonBool;
 import org.bsdclub.furuta.jalo.json.JsonNull;
@@ -32,12 +35,15 @@ import org.organicdesign.fp.collections.PersistentHashMap;
  */
 public final class Evaluator {
     private final Environment globalEnv;
+    private final BuiltinRegistry registry;
 
     /**
      * Creates a new evaluator with a fresh global namespace.
      */
     public Evaluator() {
         this.globalEnv = Environment.root();
+        this.registry = new BuiltinRegistry();
+        StringBuiltins.registerAll(registry);
     }
 
     /**
@@ -401,6 +407,14 @@ public final class Evaluator {
                 case "type":
                     return typeOf(form, env);
                 default:
+                    Optional<BuiltinFunction> builtin = registry.lookup(op.value());
+                    if (builtin.isPresent()) {
+                        List<JaloValue> args = new ArrayList<>();
+                        for (int i = 1; i < form.size(); i++) {
+                            args.add(eval(form.get(i), env));
+                        }
+                        return builtin.get().apply(args, env);
+                    }
                     break;
             }
         }
