@@ -11,7 +11,8 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 | Parser | JSON/YAML/標準構文の構文解析 | JSON モデル |
 | JSON モデル | 言語中間表現 (JsonValue 階層) の保持 | 正規化 JSON モデル |
 | SyntaxChecker | 名前解決・特殊フォーム構造・パターン構文検証 (型推論は将来) | 検証済み JSON モデル |
-| Evaluator | 実行時評価 (Phase 1)、backquote right-side evaluation (`evalBackquote` / `constructFromPattern` / `spliceArray` / `spliceMap`, SPEC §5.1-§5.2) | 値 / エフェクト |
+| Evaluator | 実行時評価 (Phase 1)、backquote right-side evaluation (`evalBackquote` / `constructFromPattern` / `spliceArray` / `spliceMap`, SPEC §5.1-§5.2)、`match` special form dispatch | 値 / エフェクト |
+| PatternMatcher | `Evaluator.evalMatch` から呼ばれる再帰パターン照合エンジン。literal / dollar束縛 / array+at / map+percent / wildcard `_` を処理し、成功時 `Optional<bindings>` を返す (SPEC §5.3) | `Optional<PersistentHashMap<String, JaloValue>>` |
 | REPL | Lexer/Parser/SyntaxChecker/Evaluator を統合し対話実行を制御 | 評価結果 / 診断情報 |
 | Runtime | 環境・束縛・例外/エフェクト制御 | 実行コンテキスト |
 | Stdlib | 組み込み・jq互換関数群 | ユーザ可視 API |

@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonBool;
 import org.bsdclub.furuta.jalo.json.JsonNull;
@@ -14,6 +15,7 @@ import org.bsdclub.furuta.jalo.json.JsonValue;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloValue;
+import org.organicdesign.fp.collections.PersistentHashMap;
 
 /**
  * Tree-walking interpreter for jalo JSON model AST.
@@ -88,8 +90,33 @@ public final class Evaluator {
             case "raise" -> evalRaise(form, env);
             case "handle" -> evalHandle(form, env);
             case "error" -> evalError(form, env);
+            case "match" -> evalMatch(form, env);
             default -> applyForm(form, env);
         };
+    }
+
+    /**
+     * Evaluates a {@code match} form with sequential pattern trials.
+     *
+     * @param form the AST node {@code ["match", valueExpr, pattern1, expr1, ...]}
+     * @param env current evaluation environment
+     * @return the selected branch value or {@code #null} when all patterns fail
+     * @throws JaloEffectSignal if the form arity is invalid
+     */
+    private JaloValue evalMatch(JsonArray form, Environment env) {
+        if (form.size() < 4 || ((form.size() - 2) % 2 != 0)) {
+            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for match"));
+        }
+        JaloValue value = eval(form.get(1), env);
+        PatternMatcher matcher = new PatternMatcher(this);
+        for (int i = 2; i + 1 < form.size(); i += 2) {
+            Optional<PersistentHashMap<String, JaloValue>> bindings = matcher.match(form.get(i), value, env);
+            if (bindings.isPresent()) {
+                Environment branchEnv = env.bindAll(bindings.get());
+                return eval(form.get(i + 1), branchEnv);
+            }
+        }
+        return JsonNull.INSTANCE;
     }
 
     private JaloValue evalError(JsonArray form, Environment env) {
