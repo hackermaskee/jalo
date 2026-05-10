@@ -82,4 +82,19 @@ class LexerTest {
             new Token.Identifier("foo", 1, 1), new Token.Identifier("bar", 2, 1), new Token.Eof(2, 4)
         ));
     }
+    @Test void step32_quoteShorthandIdentifier() {
+        assertThat(lexer.tokenize("'foo")).isEqualTo(List.of(
+            new Token.Quote(1, 1), new Token.Identifier("foo", 1, 2), new Token.Eof(1, 5)
+        ));
+    }
+    @Test void step33_identifierInternalQuotePreserved() {
+        assertThat(lexer.tokenize("foo'bar")).isEqualTo(List.of(
+            new Token.Identifier("foo'bar", 1, 1), new Token.Eof(1, 8)
+        ));
+    }
+    @Test void step34_quoteShorthandNumber() {
+        assertThat(lexer.tokenize("'42")).isEqualTo(List.of(
+            new Token.Quote(1, 1), new Token.NumberDouble(42.0, 1, 2), new Token.Eof(1, 4)
+        ));
+    }
 }

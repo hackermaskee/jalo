@@ -16,7 +16,7 @@ public sealed interface Token permits
     Token.LParen, Token.RParen,
     Token.LBrace, Token.RBrace,
     Token.Colon, Token.Comma,
-    Token.Backquote, Token.Dollar, Token.At, Token.Percent,
+    Token.Quote, Token.Backquote, Token.Dollar, Token.At, Token.Percent,
     Token.Eof {
 
     /**
@@ -49,6 +49,7 @@ public sealed interface Token permits
     record RBrace(int line, int col) implements Token {}
     record Colon(int line, int col) implements Token {}
     record Comma(int line, int col) implements Token {}
+    record Quote(int line, int col) implements Token {}
     record Backquote(int line, int col) implements Token {}
     record Dollar(int line, int col) implements Token {}
     record At(int line, int col) implements Token {}

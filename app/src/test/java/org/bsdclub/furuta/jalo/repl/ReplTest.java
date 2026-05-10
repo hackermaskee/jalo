@@ -18,7 +18,7 @@ class ReplTest {
 
     @Test
     void r2_lexErrorPrintsErrorAndContinues() throws IOException {
-        SessionOutput output = runSession("'abc'\n(+ 2 3)\n:quit\n");
+        SessionOutput output = runSession("#abc\n(+ 2 3)\n:quit\n");
         assertThat(output.stderr).contains("LEX error");
         assertThat(output.stdout).contains("5");
     }

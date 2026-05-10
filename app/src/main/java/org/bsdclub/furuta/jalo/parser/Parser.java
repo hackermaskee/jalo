@@ -104,6 +104,14 @@ public final class Parser {
             }
             case Token.Str t -> { advance(); yield new JsonString(t.value()); }
             case Token.Identifier t -> { advance(); yield new JsonString(t.name()); }
+            case Token.Quote t -> {
+                advance();
+                Token next = peek();
+                if (next instanceof Token.Eof || next instanceof Token.RParen || next instanceof Token.RBracket) {
+                    throw new ParserException("unexpected end of expression after quote shorthand", next.line(), next.col());
+                }
+                yield JsonArray.of(new JsonString("quote"), parseExpr(inBackquote));
+            }
             case Token.Backquote t -> {
                 advance();
                 yield JsonArray.of(new JsonString("backquote"), parseExpr(true));

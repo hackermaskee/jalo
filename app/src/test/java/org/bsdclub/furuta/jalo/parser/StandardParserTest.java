@@ -94,4 +94,61 @@ class StandardParserTest {
             .isInstanceOf(ParserException.class)
             .hasMessageContaining("$ outside backquote context");
     }
+
+    @Test
+    void c20_quoteShorthandIdentifier() {
+        assertThat(parse("'a"))
+            .isEqualTo(JsonArray.of(new JsonString("quote"), new JsonString("a")));
+    }
+
+    @Test
+    void c21_quoteShorthandNumber() {
+        assertThat(parse("'42"))
+            .isEqualTo(JsonArray.of(new JsonString("quote"), new JsonNumber(42.0)));
+    }
+
+    @Test
+    void c22_quoteShorthandList() {
+        assertThat(parse("'(a b c)"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("quote"),
+                    JsonArray.of(new JsonString("a"), new JsonString("b"), new JsonString("c"))));
+    }
+
+    @Test
+    void c23_quoteShorthandArray() {
+        assertThat(parse("'[1 2 3]"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("quote"),
+                    JsonArray.of(new JsonNumber(1.0), new JsonNumber(2.0), new JsonNumber(3.0))));
+    }
+
+    @Test
+    void c24_quoteShorthandMap() {
+        assertThat(parse("'{a: 1}"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("quote"),
+                    JsonObject.empty().put("a", new JsonNumber(1.0))));
+    }
+
+    @Test
+    void c25_quoteOfQuote() {
+        assertThat(parse("''a"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("quote"),
+                    JsonArray.of(new JsonString("quote"), new JsonString("a"))));
+    }
+
+    @Test
+    void c26_quoteShorthandHashNull() {
+        assertThat(parse("'#null"))
+            .isEqualTo(
+                JsonArray.of(
+                    new JsonString("quote"),
+                    JsonNull.INSTANCE));
+    }
 }

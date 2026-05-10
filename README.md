@@ -43,6 +43,9 @@ jalo> :quit
 (+ x 5)                            => 15
 (let [a 5 b 3] (- a b))            => 2
 (quote [1 2 3])                    => [1,2,3]
+(quote foo)                        => "foo"
+'foo                               => "foo"
+'(1 2 3)                           => [1,2,3]
 (if #true 1 0)                     => 1
 (fn [x] (* x x))                   => <function value>
 (handle (raise (quote e) 42) [(quote e) v v]) => 42
@@ -84,6 +87,7 @@ Below are the key differences to keep in mind:
 | List delimiters | `(...)` only (CL/Scheme) | `(...)` and `[...]` equivalent | JSON array compatibility |
 | Boolean literals | `t` / `nil` (CL) | `#true` / `#false` | Distinct from null and empty list |
 | Numeric type tags | implicit | `42i` / `42L` / `3.14` | Three numeric types per SPEC §2.1 |
+| Quote shorthand | `(quote expr)` | `'<expr>` also available | Traditional Lisp notation support |
 
 ### Notes
 
@@ -91,6 +95,8 @@ Below are the key differences to keep in mind:
   because all values must round-trip through JSON. Use whichever reads more naturally in context.
 - **Numeric type tags** (`42i`, `42L`): integer and long literals require an `i` or `L` suffix.
   See SPEC §2.1 for the full type system and SPEC §3 for the literal syntax.
+- **Quote shorthand**: jalo supports traditional `'<expr>` as a synonym for `(quote expr)`.
+  Identifier-internal `'` (e.g., `foo'bar`) remains an identifier character (Haskell/SML-style prime identifiers).
 
 See also: [SPEC §3 — Syntax](SPEC.md) and [SPEC §4.1 — Evaluation Rules](SPEC.md).
 
