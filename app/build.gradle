@@ -3,6 +3,8 @@ plugins {
     id 'checkstyle'
 }
 
+version = '0.1.0'
+
 repositories {
     mavenCentral()
 }
