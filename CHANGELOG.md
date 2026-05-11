@@ -3,23 +3,27 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-05-11
+## [0.4.0] - 2026-05-11
 
 ### BREAKING CHANGES
 
-- Suffix-less integer literals now produce `JaloInt` instead of `JaloNumber` (double).
-  `(type 42)` is now `"int"` (was `"double"`).
+- `match` pattern lhs syntax changed from quasiquote to pattern sugar:
+  - `` `[ ... ] `` -> `#[ ... ]`
+  - `` `{ ... } `` -> `#{ ... }`
+- Internal form rename:
+  - `(backquote ...)` -> `(quasiquote ...)`
+  - `(dollar x)` -> `(var x)`
+  - `(at x)` -> `(rest-seq x)`
+  - `(percent x)` -> `(rest-map x)`
+- `match` pattern position now rejects quasiquote/backtick with parser error and guidance to `#[...]`.
 
 ### Added
 
-- `d` suffix for explicit double literals: `42d` -> `JaloNumber(42.0)`.
-- Int overflow auto-promotes to `JaloLong` (for example, `2147483648`).
-- Long overflow now raises parse error.
+- Pattern sugar reader tokens `#[` / `#{`.
 
 ### Changed
 
-- SPEC §3.1 numeric literal table revised for integer-default behavior and `d` suffix.
-- SPEC §3.4 adds a note clarifying integer handling difference between standard syntax and `from-json`.
+- SPEC §5 revised for quasiquote/pattern split and new pattern forms.
 
 ## [0.2.0] - 2026-05-11
 

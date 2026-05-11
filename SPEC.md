@@ -21,7 +21,7 @@ jalo の全ランタイム値は sealed interface `JaloValue` の直接実装で
 
 ### 1.2 バージョニング規約 (Versioning Policy)
 
-- 現バージョンは `0.3.0` とする。
+- 現バージョンは `0.4.0` とする。
 - `1.0.0` 未満は **incubation** と位置づけ、言語仕様は非後方互換な変更を含みうる。
 - `0.x.y` の運用規則:
   - 軽微な変更 (新関数追加・バグ修正など) は `y` をインクリメントする。
@@ -402,8 +402,8 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
 (pure-json? #null)                                                       ; => #true
 (pure-json? 42.0)                                                        ; => #true
 (pure-json? 42i)                                                         ; => #false
-(pure-json? (conj (backquote (array 2.0)) (str-count (quote "a"))))     ; => #false
-(pure-json? (assoc (backquote (map)) (quote "a") (str-count (quote "a")))) ; => #false
+(pure-json? (conj (quasiquote (array 2.0)) (str-count (quote "a"))))     ; => #false
+(pure-json? (assoc (quasiquote (map)) (quote "a") (str-count (quote "a")))) ; => #false
 (pure-json? (fn [x] x))                                                  ; => #false
 ```
 
@@ -607,8 +607,8 @@ Java `int` 範囲 (`2^31 - 1`) を超える可能性が現実的にある関数�
 
 ## 5. パターン (バッククオート相当)
 
-パターンは JSON モデルの構築テンプレートであり、かつ JSON モデルのパターンマッチによる分解にも使える。  
-値の構築・`match` の左辺どちらも **`(backquote <pattern>)`** を使う。標準構文では `` `<pattern> `` と書く。
+`quasiquote` は JSON モデル値の構築に使う。  
+`match` の左辺は **`(pattern <pattern>)`** を使う。標準構文では `#[...]` / `#{...}` と書く。
 
 ### 5.1 パターンの文法と JSON モデル表現
 
@@ -625,17 +625,17 @@ Java `int` 範囲 (`2^31 - 1`) を超える可能性が現実的にある関数�
 | `"hello"` | `"hello"` |
 
 **埋め込み式 `$e`**  
-`e` が標準構文の式ならば `$e` はパターンであり、`⟦$e⟧ = (dollar ⟦e⟧)`。
+`e` が標準構文の式ならば `$e` はパターンであり、`⟦$e⟧ = (var ⟦e⟧)`。
 
 **配列パターン `[e0 ... en]`**  
 各 `ei` がパターン、または `@e` の形 (`e` は標準構文の式) のとき、`[e0 ... en]` はパターン。
 
 ```
 ⟦[e0 ... en]⟧ = (array ⟦e0⟧ ... ⟦en⟧)
-⟦@e⟧          = (at ⟦e⟧)
+⟦@e⟧          = (rest-seq ⟦e⟧)
 ```
 
-`(at ⟦e⟧)` は必ず `(array ...)` の直接の要素として出現する。
+`(rest-seq ⟦e⟧)` は必ず `(array ...)` の直接の要素として出現する。
 
 **Map パターン `{e0 ... en}`**  
 各 `ei` が `k:v` の形 (キー `k` は文字列リテラルまたは `$e`、値 `v` はパターン) か `%e` の形のとき、`{e0 ... en}` はパターン。
@@ -643,18 +643,18 @@ Java `int` 範囲 (`2^31 - 1`) を超える可能性が現実的にある関数�
 ```
 ⟦{e0 ... en}⟧          = (map ⟦e0⟧ ... ⟦en⟧)
 ⟦k:v⟧  (k は文字列)    = ("k" ⟦v⟧)
-⟦($e):v⟧               = ((dollar ⟦e⟧) ⟦v⟧)
-⟦%e⟧                   = (percent ⟦e⟧)
+⟦($e):v⟧               = ((var ⟦e⟧) ⟦v⟧)
+⟦%e⟧                   = (rest-map ⟦e⟧)
 ```
 
-`(percent ⟦e⟧)` は必ず `(map ...)` の直接の要素として出現する。
+`(rest-map ⟦e⟧)` は必ず `(map ...)` の直接の要素として出現する。
 
-### 5.2 `backquote` の意味
+### 5.2 `quasiquote` の意味
 
-`(backquote <pattern>)` は第 1 版ではスペシャルフォームとして実装される（第 2 版以降でマクロ機構へ移行する予定）。
+`(quasiquote <pattern>)` は第 1 版ではスペシャルフォームとして実装される（第 2 版以降でマクロ機構へ移行する予定）。
 
-- **右辺 (値の構築)**: 展開後に評価すると、`(dollar ...)` の式を評価して埋め込んだ JSON モデルの値が得られる。
-- **左辺 (`match` のパターン)**: `match` が `(backquote ...)` を認識し、内部の `(array ...)` / `(map ...)` / `(dollar ...)` 等の構造を静的に解釈して変数束縛を行う。
+- **右辺 (値の構築)**: 展開後に評価すると、`(var ...)` の式を評価して埋め込んだ JSON モデルの値が得られる。
+- **左辺 (`match` のパターン)**: `match` は `(pattern ...)` を認識し、内部の `(array ...)` / `(map ...)` / `(var ...)` 等の構造を静的に解釈して変数束縛を行う。
 
 右辺の例:
 
@@ -673,19 +673,19 @@ Java `int` 範囲 (`2^31 - 1`) を超える可能性が現実的にある関数�
 JSON モデル上での表現:
 
 ```json
-["backquote", ["array", ["dollar","x"], ["at","arr"], "end"]]
+["quasiquote", ["array", ["var","x"], ["rest-seq","arr"], "end"]]
 
-["backquote", ["map", [["dollar","k"], "Alice"], ["percent","extra"]]]
+["quasiquote", ["map", [["var","k"], "Alice"], ["rest-map","extra"]]]
 ```
 
 ### 5.3 左辺パターンの制約
 
-`match` のパターン位置で `(backquote ...)` を使う場合、以下の追加制約が課される。
+`match` のパターン位置で `(pattern ...)` を使う場合、以下の追加制約が課される。
 
-- `(dollar ...)` の後には **変数のみ** 記述できる (任意式は不可)。
-- `(at <var>)` は同一 `(array ...)` 内に高々 1 つ。
-- `(percent <var>)` は同一 `(map ...)` 内に高々 1 つ。
-- `(map ...)` のキー部分 (`(キー 値)` ペアの第 1 要素) に `(dollar ...)` は使用不可 (静的キーのみ)。
+- `(var ...)` の後には **変数のみ** 記述できる (任意式は不可)。
+- `(rest-seq <var>)` は同一 `(array ...)` 内に高々 1 つ。
+- `(rest-map <var>)` は同一 `(map ...)` 内に高々 1 つ。
+- `(map ...)` のキー部分 (`(キー 値)` ペアの第 1 要素) に `(var ...)` は使用不可 (静的キーのみ)。
 
 **ワイルドカード `_`**  
 変数名 `_` はワイルドカードとして予約される (Clojure スタイル)。`$_` はどんな値にもマッチするが、値を束縛しない。同一パターン内に複数の `$_` を書ける。`@_` / `%_` も同様にワイルドカードとして使用できる。
@@ -701,12 +701,12 @@ JSON モデル上での表現:
 3. 失敗すれば後続のパターンを順に試みる
 4. すべてのパターンに失敗した場合は `#null` を返す (意図的な設計)
 
-パターン位置には `(backquote ...)` フォーム、またはリテラル値 (文字列・数値・`#true`・`#false`・`#null`) を直接書ける。後者は値の等値比較で照合する。
+パターン位置には `(pattern ...)` フォーム (糖衣: `#[...]` / `#{...}`)、またはリテラル値 (文字列・数値・`#true`・`#false`・`#null`) を直接書ける。後者は値の等値比較で照合する。`(quasiquote ...)` や `` `... `` を `match` 左辺へ置くとパースエラー。
 
 ```
 (match val
-  `[$x @rest]                        (list x rest)
-  `{name: $n  %_}                    n
+  #[$x @rest]                        (list x rest)
+  #{name: $n  %_}                    n
   42                                 "forty-two")
 ```
 
@@ -714,23 +714,25 @@ JSON モデル上での表現:
 
 ```
 (match val
-  `[$x @rest]  (list x rest)
-  `$_          (error "unexpected value"))
+  #[$x @rest]              (list x rest)
+  (pattern (var _))        (error "unexpected value"))
 ```
 
-### 5.5 標準構文のバッククオート構文の AST 変換規則
+### 5.5 標準構文の AST 変換規則
 
-標準構文パーサーは `` ` `` (バッククオート) を読んだ後、**パターン構文モード**に切り替わる。
+標準構文パーサーは `` ` `` を読んだ後、**quasiquote 構文モード**に切り替わる。
 
 - `[...]` → `(array ...)` (通常構文の配列リテラルとは別ノード)
 - `{k: v ...}` → `(map ("k" ...) ...)` (通常構文の Map リテラルとは別ノード)
-- `$e` → `(dollar ⟦e⟧)`
-- `@e` → `(at ⟦e⟧)`
-- `%e` → `(percent ⟦e⟧)`
+- `$e` → `(var ⟦e⟧)`
+- `@e` → `(rest-seq ⟦e⟧)`
+- `%e` → `(rest-map ⟦e⟧)`
+
+`#[...]` は `(pattern (array ...))`、`#{...}` は `(pattern (map ...))` へ変換される。
 
 パターン構文モード内の `e`/`k` 等、パターンではなく **式** を期待する位置 (`$e` の `e`、`@e` の `e` 等) では通常構文モードに戻る。
 
-`(backquote ...)` / `` ` `` の外側に `$`/`@`/`%` が出現した場合はパースエラー。
+`(quasiquote ...)` / `` ` `` の外側に `$`/`@`/`%` が出現した場合はパースエラー。
 
 ---
 
@@ -761,7 +763,7 @@ A complete expression is evaluated when total depth returns to zero or below.
 REPL and CLI print errors using this format:
 
 ```text
-<KIND> error at line <line>:<col>: <message>
+<KIND> error rest-seq line <line>:<col>: <message>
 ```
 
 If line/column is unavailable, positional segment is omitted.
