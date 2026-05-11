@@ -9,7 +9,7 @@ jalo は AST に JSON モデルを採用した Lisp 方言です。
 > ⚠️ **インキュベーション中 (v0.4.0)** — jalo は活発に開発中です。  
 > 言語仕様は過去との互換性なく変更される可能性があります。  
 > 現バージョンに対して書かれたプログラムが将来そのまま動作することは保証されません。  
-> 詳細は [SPEC.md §1.2](SPEC.md#12-versioning-policy) をご参照ください。
+> 詳細は [docs/SPEC.md §1.2](docs/SPEC.md#12-versioning-policy) をご参照ください。
 
 ## プロジェクト概要
 
@@ -105,11 +105,11 @@ jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をし�
 - **quote 略記**: jalo では伝統的な `'<expr>` 記法を `(quote expr)` の同義として利用できます。
   識別子中の `'`（例: `foo'bar`）は識別子文字として扱われ、Haskell/SML 風プライム識別子と互換です。
 
-参照: [SPEC §3 — 構文](SPEC.md) / [SPEC §4.1 — 評価規則](SPEC.md)
+参照: [SPEC §3 — 構文](docs/SPEC.md) / [SPEC §4.1 — 評価規則](docs/SPEC.md)
 
 ## ドキュメント
 
-- 言語仕様: `SPEC.md`
+- 言語仕様: `docs/SPEC.md`
 - 実装設計: `docs/DESIGN.md`
 - コントリビュート規則: `CONTRIBUTING.md`
 

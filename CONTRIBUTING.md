@@ -70,7 +70,7 @@ gh pr view <PR番号> --json commits --jq '.commits[].messageHeadline'
 - refactor PR: 機能変更を伴わないリネーム・型階層変更等は `refactor:` commit のみで可。
   ただし PR description で `TDD N/A: refactor-only` と明示すること。
 - 緊急修正 PR: 殿の override 発動時は適用範囲外。ただし事後 dashboard 記録必須。
-- docs PR: ドキュメントのみの変更 (`CONTRIBUTING.md` / `SPEC.md` / `DESIGN.md` 等) は適用範囲外。
+- docs PR: ドキュメントのみの変更 (`CONTRIBUTING.md` / `docs/SPEC.md` / `DESIGN.md` 等) は適用範囲外。
 
 違反時対処:
 - 軍師は PR の commit 履歴を確認し、適用範囲内 PR で TDD prefix が付与されていない場合、

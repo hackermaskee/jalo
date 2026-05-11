@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-05-11
+
+### Changed
+
+- Move `SPEC.md` to `docs/SPEC.md` for consistent documentation layout
+- Update all references to `SPEC.md` in README, README_ja, CONTRIBUTING, CLAUDE.md
+
 ## [0.4.0] - 2026-05-11
 
 ### BREAKING CHANGES

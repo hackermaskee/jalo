@@ -9,7 +9,7 @@ interactive REPL, one-shot expression evaluation, and file evaluation.
 > ⚠️ **Incubation (v0.4.0)** — jalo is under active development.  
 > Language specifications may change in non-backward-compatible ways.  
 > Programs written against the current version are not guaranteed to work in future versions.  
-> See [SPEC.md §1.2](SPEC.md#12-versioning-policy) for details.
+> See [docs/SPEC.md §1.2](docs/SPEC.md#12-versioning-policy) for details.
 
 ## Project Description
 
@@ -105,11 +105,11 @@ Below are the key differences to keep in mind:
 - **Quote shorthand**: jalo supports traditional `'<expr>` as a synonym for `(quote expr)`.
   Identifier-internal `'` (e.g., `foo'bar`) remains an identifier character (Haskell/SML-style prime identifiers).
 
-See also: [SPEC §3 — Syntax](SPEC.md) and [SPEC §4.1 — Evaluation Rules](SPEC.md).
+See also: [SPEC §3 — Syntax](docs/SPEC.md) and [SPEC §4.1 — Evaluation Rules](docs/SPEC.md).
 
 ## Documentation Links
 
-- Language spec: `SPEC.md`
+- Language spec: `docs/SPEC.md`
 - Implementation design: `docs/DESIGN.md`
 - Contribution rules: `CONTRIBUTING.md`
 
