@@ -18,7 +18,7 @@ class TypeBuiltinsTest {
         return evaluator.eval(parser.parseStandard(lexer.tokenize(src)));
     }
 
-    @Test void nullIsPureJson() { assertThat(run("(pure-json? null)")).isEqualTo(JaloBool.TRUE); }
+    @Test void nullIsPureJson() { assertThat(run("(pure-json? #null)")).isEqualTo(JaloBool.TRUE); }
     @Test void boolIsPureJson() {
         assertThat(run("(pure-json? #true)")).isEqualTo(JaloBool.TRUE);
         assertThat(run("(pure-json? #false)")).isEqualTo(JaloBool.TRUE);
@@ -27,16 +27,34 @@ class TypeBuiltinsTest {
         assertThat(run("(pure-json? 3.14)")).isEqualTo(JaloBool.TRUE);
         assertThat(run("(pure-json? 42.0)")).isEqualTo(JaloBool.TRUE);
     }
-    @Test void stringIsPureJson() { assertThat(run("(pure-json? \"hello\")")).isEqualTo(JaloBool.TRUE); }
+    @Test void stringIsPureJson() { assertThat(run("(pure-json? (quote \"hello\"))")).isEqualTo(JaloBool.TRUE); }
     @Test void intIsNotPureJson() { assertThat(run("(pure-json? 42i)")).isEqualTo(JaloBool.FALSE); }
     @Test void longIsNotPureJson() { assertThat(run("(pure-json? 42l)")).isEqualTo(JaloBool.FALSE); }
-    @Test void emptyArrayIsPureJson() { assertThat(run("(pure-json? [])")).isEqualTo(JaloBool.TRUE); }
-    @Test void doubleArrayIsPureJson() { assertThat(run("(pure-json? [1.0 2.0 3.0])")).isEqualTo(JaloBool.TRUE); }
-    @Test void intElementArrayIsNotPureJson() { assertThat(run("(pure-json? [1i 2i])")).isEqualTo(JaloBool.FALSE); }
-    @Test void emptyMapIsPureJson() { assertThat(run("(pure-json? {})")).isEqualTo(JaloBool.TRUE); }
-    @Test void doubleMapIsPureJson() { assertThat(run("(pure-json? {a: 1.0})")).isEqualTo(JaloBool.TRUE); }
-    @Test void intValueMapIsNotPureJson() { assertThat(run("(pure-json? {a: 42i})")).isEqualTo(JaloBool.FALSE); }
+    @Test void emptyArrayIsPureJson() { assertThat(run("(pure-json? (backquote (array)))")).isEqualTo(JaloBool.TRUE); }
+    @Test void doubleArrayIsPureJson() {
+        assertThat(run("(pure-json? (backquote (array 1.0 2.0 3.0)))")).isEqualTo(JaloBool.TRUE);
+    }
+    @Test void intElementArrayIsNotPureJson() {
+        assertThat(run("(pure-json? (conj (backquote (array 2.0)) (str-count (quote \"a\"))))"))
+            .isEqualTo(JaloBool.FALSE);
+    }
+    @Test void emptyMapIsPureJson() { assertThat(run("(pure-json? (backquote (map)))")).isEqualTo(JaloBool.TRUE); }
+    @Test void doubleMapIsPureJson() {
+        assertThat(run("(pure-json? (backquote (map (\"a\" 1.0))))")).isEqualTo(JaloBool.TRUE);
+    }
+    @Test void intValueMapIsNotPureJson() {
+        assertThat(run("(pure-json? (assoc (backquote (map)) (quote \"a\") (str-count (quote \"a\"))))"))
+            .isEqualTo(JaloBool.FALSE);
+    }
     @Test void fnIsNotPureJson() { assertThat(run("(pure-json? (fn [x] x))")).isEqualTo(JaloBool.FALSE); }
-    @Test void nestedArrayWithIntIsNotPureJson() { assertThat(run("(pure-json? [1.0 [2i 3.0]])")).isEqualTo(JaloBool.FALSE); }
-    @Test void nestedMapWithIntIsNotPureJson() { assertThat(run("(pure-json? {a: {b: 42i}})")).isEqualTo(JaloBool.FALSE); }
+    @Test void nestedArrayWithIntIsNotPureJson() {
+        assertThat(run("(pure-json? (conj (backquote (array 1.0)) "
+            + "(conj (backquote (array 3.0)) (str-count (quote \"a\")))))"))
+            .isEqualTo(JaloBool.FALSE);
+    }
+    @Test void nestedMapWithIntIsNotPureJson() {
+        assertThat(run("(pure-json? (assoc (backquote (map)) (quote \"a\") "
+            + "(assoc (backquote (map)) (quote \"b\") (str-count (quote \"a\")))))"))
+            .isEqualTo(JaloBool.FALSE);
+    }
 }
