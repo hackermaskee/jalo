@@ -24,7 +24,7 @@ public final class StringBuiltins {
      * @param registry target registry
      */
     public static void registerAll(BuiltinRegistry registry) {
-        registry.register("str-count", (args, env) -> new JsonNumber(requireString("str-count", args, 1, 0).length()));
+        registry.register("str-count", (args, env) -> new JaloInt(requireString("str-count", args, 1, 0).length()));
         registry.register("str-get", (args, env) -> {
             String s = requireString("str-get", args, 2, 0);
             int idx = requireIndex("str-get", args.get(1));
@@ -80,7 +80,7 @@ public final class StringBuiltins {
             }
             return new JsonString(src.substring(0, idx) + rep + src.substring(idx + old.length()));
         });
-        registry.register("str-index-of", (args, env) -> new JsonNumber(requireString("str-index-of", args, 2, 0)
+        registry.register("str-index-of", (args, env) -> new JaloInt(requireString("str-index-of", args, 2, 0)
             .indexOf(requireString("str-index-of", args, 2, 1))));
         registry.register("str->number", (args, env) -> {
             String s = requireString("str->number", args, 1, 0);
