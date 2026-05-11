@@ -13,13 +13,14 @@ import org.bsdclub.furuta.jalo.evaluator.builtins.SeqBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
-import org.bsdclub.furuta.jalo.value.JaloNull;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
-import org.bsdclub.furuta.jalo.value.JaloMap;
-import org.bsdclub.furuta.jalo.value.JaloString;
-import org.bsdclub.furuta.jalo.value.JaloValue;
+import org.bsdclub.furuta.jalo.value.JaloFunction;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
+import org.bsdclub.furuta.jalo.value.JaloMap;
+import org.bsdclub.furuta.jalo.value.JaloNull;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
+import org.bsdclub.furuta.jalo.value.JaloString;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
 /**

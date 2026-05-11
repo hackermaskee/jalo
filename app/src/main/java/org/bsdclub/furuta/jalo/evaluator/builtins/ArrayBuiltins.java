@@ -9,9 +9,9 @@ import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloNull;
 import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloString;
-import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 
 /**
  * Array-related built-in functions.
@@ -36,7 +36,7 @@ public final class ArrayBuiltins {
             requireMinArity("conj", args, 2);
             JaloArray arr = requireArray("conj", args.get(0));
             JaloArray out = arr;
-            for (int i = 1; i < args.size(); i++) out = out.append(toJsonValue(args.get(i)));
+            for (int i = 1; i < args.size(); i++) out = out.append(args.get(i));
             return out;
         });
         registry.register("get", (args, env) -> {
@@ -73,7 +73,7 @@ public final class ArrayBuiltins {
         registry.register("cons", (args, env) -> {
             requireArity("cons", args, 2);
             JaloArray arr = requireArray("cons", args.get(1));
-            JaloArray out = JaloArray.empty().append(toJsonValue(args.get(0)));
+            JaloArray out = JaloArray.empty().append(args.get(0));
             for (int i = 0; i < arr.size(); i++) out = out.append(arr.get(i));
             return out;
         });
@@ -130,7 +130,7 @@ public final class ArrayBuiltins {
                 throw error("Wrong arity for range");
             }
             JaloArray out = JaloArray.empty();
-            for (int i = start; i < end; i++) out = out.append(new JaloNumber(i));
+            for (int i = start; i < end; i++) out = out.append(new JaloInt(i));
             return out;
         });
         registry.register("index-of", (args, env) -> {

@@ -4,12 +4,9 @@ import java.util.List;
 import java.util.Map;
 import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
 import org.bsdclub.furuta.jalo.value.JaloArray;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloMap;
 import org.bsdclub.furuta.jalo.value.JaloString;
 import org.bsdclub.furuta.jalo.value.JaloValue;
-import org.bsdclub.furuta.jalo.value.JaloInt;
-import org.bsdclub.furuta.jalo.value.JaloLong;
 
 /**
  * Map-related built-in functions.
@@ -29,7 +26,7 @@ public final class MapBuiltins {
             JaloMap map = requireMap("assoc", args.get(0));
             for (int i = 1; i < args.size(); i += 2) {
                 String key = requireString("assoc", args.get(i));
-                map = map.put(key, toJsonValue(args.get(i + 1)));
+                map = map.put(key, args.get(i + 1));
             }
             return map;
         });
@@ -111,12 +108,6 @@ public final class MapBuiltins {
     private static String requireString(String name, JaloValue value) {
         if (value instanceof JaloString s) return s.value();
         throw error(name + ": expected string key");
-    }
-
-    private static JaloValue toJsonValue(JaloValue value) {
-        if (value instanceof JaloInt n) return new JaloNumber(n.value());
-        if (value instanceof JaloLong n) return new JaloNumber(n.value());
-        return value;
     }
 
     private static void requireArity(String name, List<JaloValue> args, int arity) {

@@ -1,10 +1,10 @@
-package org.bsdclub.furuta.jalo.evaluator;
+package org.bsdclub.furuta.jalo.value;
 
 import java.util.List;
+import org.bsdclub.furuta.jalo.evaluator.Environment;
+import org.bsdclub.furuta.jalo.evaluator.Evaluator;
+import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
 import org.bsdclub.furuta.jalo.evaluator.builtins.Callable;
-import org.bsdclub.furuta.jalo.value.JaloArray;
-import org.bsdclub.furuta.jalo.value.JaloString;
-import org.bsdclub.furuta.jalo.value.JaloValue;
 
 /**
  * Closure value representing a jalo function ({@code (fn ...)}).

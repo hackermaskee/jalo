@@ -1,14 +1,21 @@
 package org.bsdclub.furuta.jalo.value;
 
 /**
- * Represents the top-level abstraction of all jalo runtime values.
+ * Sealed top-level type for all jalo runtime values.
  *
  * <p>Layer: Value (per DESIGN.md §1 architecture table).
- * Defines a shared marker type for both JSON values and jalo-only numeric primitives.
+ * Permits exactly 9 concrete value types.
  *
- * @see JaloValue
+ * @see JaloNull
+ * @see JaloBool
+ * @see JaloNumber
+ * @see JaloString
+ * @see JaloArray
+ * @see JaloMap
  * @see JaloInt
  * @see JaloLong
+ * @see JaloFunction
  */
-public interface JaloValue {
+public sealed interface JaloValue
+    permits JaloNull, JaloBool, JaloNumber, JaloString, JaloArray, JaloMap, JaloInt, JaloLong, JaloFunction {
 }
