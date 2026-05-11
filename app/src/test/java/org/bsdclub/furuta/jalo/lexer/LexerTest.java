@@ -83,7 +83,7 @@ class LexerTest {
         ));
     }
     @Test void step30_comboTemplateLike() {
-        assertThat(lexer.tokenize("`[$x @rest]")).isEqualTo(List.of(
+        assertThat(lexer.tokenize("#[$x @rest]")).isEqualTo(List.of(
             new Token.Backquote(1, 1), new Token.LBracket(1, 2), new Token.Dollar(1, 3),
             new Token.Identifier("x", 1, 4), new Token.At(1, 6), new Token.Identifier("rest", 1, 7),
             new Token.RBracket(1, 11), new Token.Eof(1, 12)

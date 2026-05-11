@@ -53,7 +53,7 @@ class StandardParserTest {
 
     @Test
     void c16_backquoteArrayLiteral() {
-        assertThat(parse("`[1 2 3]"))
+        assertThat(parse("#[1 2 3]"))
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("backquote"),
@@ -66,7 +66,7 @@ class StandardParserTest {
 
     @Test
     void c17_backquoteArrayWithDollarAndAt() {
-        assertThat(parse("`[$x @arr]"))
+        assertThat(parse("#[$x @arr]"))
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("backquote"),
@@ -78,7 +78,7 @@ class StandardParserTest {
 
     @Test
     void c18_backquoteMapWithDollarValue() {
-        assertThat(parse("`{name: $n}"))
+        assertThat(parse("#{name: $n}"))
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("backquote"),

@@ -178,51 +178,51 @@ class EvaluatorTest {
 
     @Test
     void mA1_backquoteLiteralNumber() {
-        assertThat(evaluator.eval(parse("(backquote 42i)"))).isEqualTo(new JaloInt(42));
+        assertThat(evaluator.eval(parse("(quasiquote 42i)"))).isEqualTo(new JaloInt(42));
     }
 
     @Test
     void mA2_backquoteLiteralString() {
-        assertThat(evaluator.eval(parse("(backquote \"hello\")"))).isEqualTo(new JaloString("hello"));
+        assertThat(evaluator.eval(parse("(quasiquote \"hello\")"))).isEqualTo(new JaloString("hello"));
     }
 
     @Test
     void mA3_backquoteLiteralNull() {
-        assertThat(evaluator.eval(parse("(backquote #null)"))).isEqualTo(JaloNull.INSTANCE);
+        assertThat(evaluator.eval(parse("(quasiquote #null)"))).isEqualTo(JaloNull.INSTANCE);
     }
 
     @Test
     void mA4_backquoteDollarVariableEmbed() {
-        assertThat(evaluator.eval(parse("(let [x 5i] (backquote (dollar x)))"))).isEqualTo(new JaloNumber(5.0));
+        assertThat(evaluator.eval(parse("(let [x 5i] (quasiquote (var x)))"))).isEqualTo(new JaloNumber(5.0));
     }
 
     @Test
     void mA5_backquoteArrayWithDollars() {
-        assertThat(evaluator.eval(parse("(let [x 1i y 2i] (backquote (array (dollar x) (dollar y))))")))
+        assertThat(evaluator.eval(parse("(let [x 1i y 2i] (quasiquote (array (var x) (var y))))")))
             .isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0)));
     }
 
     @Test
     void mA6_backquoteArrayMixedLiteralAndDollar() {
-        assertThat(evaluator.eval(parse("(let [x 5i] (backquote (array 1i (dollar x) 3i)))")))
+        assertThat(evaluator.eval(parse("(let [x 5i] (quasiquote (array 1i (var x) 3i)))")))
             .hasToString(JaloArray.of(new JaloNumber(1.0), new JaloNumber(5.0), new JaloNumber(3.0)).toString());
     }
 
     @Test
     void mA7_backquoteAtSpliceInArray() {
-        assertThat(evaluator.eval(parse("(let [arr (backquote (array 2i 3i))] (backquote (array 1i (at arr) 4i)))")))
+        assertThat(evaluator.eval(parse("(let [arr (quasiquote (array 2i 3i))] (quasiquote (array 1i (rest-seq arr) 4i)))")))
             .hasToString(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0), new JaloNumber(4.0)).toString());
     }
 
     @Test
     void mA8_backquoteAtSpliceEmptyArray() {
-        assertThat(evaluator.eval(parse("(let [arr (backquote (array))] (backquote (array 0i (at arr) 1i)))")))
+        assertThat(evaluator.eval(parse("(let [arr (quasiquote (array))] (quasiquote (array 0i (rest-seq arr) 1i)))")))
             .isEqualTo(JaloArray.of(new JaloInt(0), new JaloInt(1)));
     }
 
     @Test
     void mA9_backquoteAtSpliceNonArrayFails() {
-        assertThatThrownBy(() -> evaluator.eval(parse("(let [x 5i] (backquote (array (at x))))")))
+        assertThatThrownBy(() -> evaluator.eval(parse("(let [x 5i] (quasiquote (array (rest-seq x))))")))
             .isInstanceOf(JaloEffectSignal.class)
             .satisfies(ex -> {
                 JaloEffectSignal sig = (JaloEffectSignal) ex;
@@ -233,19 +233,19 @@ class EvaluatorTest {
 
     @Test
     void mA10_backquoteMapLiteralKeyDollarValue() {
-        assertThat(evaluator.eval(parse("(let [v 1i] (backquote (map (\"k\" (dollar v)))))")))
+        assertThat(evaluator.eval(parse("(let [v 1i] (quasiquote (map (\"k\" (var v)))))")))
             .isEqualTo(JaloMap.empty().put("k", new JaloNumber(1.0)));
     }
 
     @Test
     void mA11_backquoteMapWithPercentSplice() {
-        assertThat(evaluator.eval(parse("(let [extra (backquote (map (\"a\" 1i)))] (backquote (map (\"b\" 2i) (percent extra))))")))
+        assertThat(evaluator.eval(parse("(let [extra (quasiquote (map (\"a\" 1i)))] (quasiquote (map (\"b\" 2i) (rest-map extra))))")))
             .isEqualTo(JaloMap.empty().put("b", new JaloInt(2)).put("a", new JaloInt(1)));
     }
 
     @Test
     void mA12_backquoteNestedArrayOfMaps() {
-        assertThat(evaluator.eval(parse("(backquote (array (map (\"x\" 1i)) (map (\"x\" 2i))))")))
+        assertThat(evaluator.eval(parse("(quasiquote (array (map (\"x\" 1i)) (map (\"x\" 2i))))")))
             .isEqualTo(
                 JaloArray.of(
                     JaloMap.empty().put("x", new JaloInt(1)),

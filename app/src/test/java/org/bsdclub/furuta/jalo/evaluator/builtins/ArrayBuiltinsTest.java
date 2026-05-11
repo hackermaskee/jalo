@@ -22,61 +22,61 @@ class ArrayBuiltinsTest {
 
     @Test
     void bB1_count() {
-        assertThat(evaluator.eval(parse("(count (backquote (array 1i 2i 3i)))"))).isEqualTo(new JaloInt(3));
+        assertThat(evaluator.eval(parse("(count (quasiquote (array 1i 2i 3i)))"))).isEqualTo(new JaloInt(3));
     }
 
     @Test
     void bB2_countEmpty() {
-        assertThat(evaluator.eval(parse("(count (backquote (array)))"))).isEqualTo(new JaloInt(0));
+        assertThat(evaluator.eval(parse("(count (quasiquote (array)))"))).isEqualTo(new JaloInt(0));
     }
 
     @Test
     void bB3_first() {
-        assertThat(evaluator.eval(parse("(first (backquote (array 10i 20i)))"))).isEqualTo(new JaloInt(10));
+        assertThat(evaluator.eval(parse("(first (quasiquote (array 10i 20i)))"))).isEqualTo(new JaloInt(10));
     }
 
     @Test
     void bB4_firstEmpty() {
-        assertThat(evaluator.eval(parse("(first (backquote (array)))"))).isEqualTo(JaloNull.INSTANCE);
+        assertThat(evaluator.eval(parse("(first (quasiquote (array)))"))).isEqualTo(JaloNull.INSTANCE);
     }
 
     @Test
     void bB5_last() {
-        assertThat(evaluator.eval(parse("(last (backquote (array 10i 20i 30i)))"))).isEqualTo(new JaloInt(30));
+        assertThat(evaluator.eval(parse("(last (quasiquote (array 10i 20i 30i)))"))).isEqualTo(new JaloInt(30));
     }
 
     @Test
     void bB6_nth() {
-        assertThat(evaluator.eval(parse("(nth (backquote (array 10i 20i 30i)) 1i)"))).isEqualTo(new JaloInt(20));
+        assertThat(evaluator.eval(parse("(nth (quasiquote (array 10i 20i 30i)) 1i)"))).isEqualTo(new JaloInt(20));
     }
 
     @Test
     void bB7_nthOutOfRangeError() {
-        assertThat(evaluator.eval(parse("(handle (nth (backquote (array 10i 20i)) 5i) [(quote error) e e])")))
+        assertThat(evaluator.eval(parse("(handle (nth (quasiquote (array 10i 20i)) 5i) [(quote error) e e])")))
             .isEqualTo(new org.bsdclub.furuta.jalo.value.JaloString("nth: index out of range: 5"));
     }
 
     @Test
     void bB8_rest() {
-        assertThat(evaluator.eval(parse("(rest (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(rest (quasiquote (array 1i 2i 3i)))")))
             .isEqualTo(JaloArray.of(new JaloInt(2), new JaloInt(3)));
     }
 
     @Test
     void bB9_conj() {
-        assertThat(evaluator.eval(parse("(conj (backquote (array 1i 2i)) 3i)")))
+        assertThat(evaluator.eval(parse("(conj (quasiquote (array 1i 2i)) 3i)")))
             .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 
     @Test
     void bB10_concat() {
-        assertThat(evaluator.eval(parse("(concat (backquote (array 1i 2i)) (backquote (array 3i 4i)))")))
+        assertThat(evaluator.eval(parse("(concat (quasiquote (array 1i 2i)) (quasiquote (array 3i 4i)))")))
             .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3), new JaloInt(4)));
     }
 
     @Test
     void bB11_reverse() {
-        assertThat(evaluator.eval(parse("(reverse (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(reverse (quasiquote (array 1i 2i 3i)))")))
             .isEqualTo(JaloArray.of(new JaloInt(3), new JaloInt(2), new JaloInt(1)));
     }
 
@@ -88,17 +88,17 @@ class ArrayBuiltinsTest {
 
     @Test
     void bB13_indexOf() {
-        assertThat(evaluator.eval(parse("(index-of (backquote (array 10i 20i 30i)) 20.0)"))).isEqualTo(new JaloInt(-1));
+        assertThat(evaluator.eval(parse("(index-of (quasiquote (array 10i 20i 30i)) 20.0)"))).isEqualTo(new JaloInt(-1));
     }
 
     @Test
     void bB14_contains() {
-        assertThat(evaluator.eval(parse("(contains? (backquote (array 1i 2i 3i)) 2.0)"))).isEqualTo(JaloBool.FALSE);
+        assertThat(evaluator.eval(parse("(contains? (quasiquote (array 1i 2i 3i)) 2.0)"))).isEqualTo(JaloBool.FALSE);
     }
 
     @Test
     void bB15_sort() {
-        assertThat(evaluator.eval(parse("(sort (backquote (array 3i 1i 2i)))")))
+        assertThat(evaluator.eval(parse("(sort (quasiquote (array 3i 1i 2i)))")))
             .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 }

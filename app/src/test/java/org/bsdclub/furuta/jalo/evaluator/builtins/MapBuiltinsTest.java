@@ -22,19 +22,19 @@ class MapBuiltinsTest {
 
     @Test
     void bB16_assoc() {
-        assertThat(evaluator.eval(parse("(assoc (backquote (map)) (quote \"a\") 1i)")))
+        assertThat(evaluator.eval(parse("(assoc (quasiquote (map)) (quote \"a\") 1i)")))
             .isEqualTo(JaloMap.empty().put("a", new org.bsdclub.furuta.jalo.value.JaloInt(1)));
     }
 
     @Test
     void bB17_dissoc() {
-        assertThat(evaluator.eval(parse("(dissoc (backquote (map (\"a\" 1i) (\"b\" 2i))) (quote \"a\"))")))
+        assertThat(evaluator.eval(parse("(dissoc (quasiquote (map (\"a\" 1i) (\"b\" 2i))) (quote \"a\"))")))
             .isEqualTo(JaloMap.empty().put("b", new JaloInt(2)));
     }
 
     @Test
     void bB18_keys() {
-        Object value = evaluator.eval(parse("(keys (backquote (map (\"a\" 1i) (\"b\" 2i))))"));
+        Object value = evaluator.eval(parse("(keys (quasiquote (map (\"a\" 1i) (\"b\" 2i))))"));
         assertThat(value).isInstanceOf(JaloArray.class);
         JaloArray arr = (JaloArray) value;
         assertThat(arr.size()).isEqualTo(2);
@@ -45,7 +45,7 @@ class MapBuiltinsTest {
 
     @Test
     void bB19_vals() {
-        Object value = evaluator.eval(parse("(vals (backquote (map (\"a\" 1i) (\"b\" 2i))))"));
+        Object value = evaluator.eval(parse("(vals (quasiquote (map (\"a\" 1i) (\"b\" 2i))))"));
         assertThat(value).isInstanceOf(JaloArray.class);
         JaloArray arr = (JaloArray) value;
         assertThat(arr.size()).isEqualTo(2);
@@ -56,7 +56,7 @@ class MapBuiltinsTest {
 
     @Test
     void bB20_merge() {
-        assertThat(evaluator.eval(parse("(merge (backquote (map (\"a\" 1i))) (backquote (map (\"b\" 2i))))")))
+        assertThat(evaluator.eval(parse("(merge (quasiquote (map (\"a\" 1i))) (quasiquote (map (\"b\" 2i))))")))
             .isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2)));
     }
 }
