@@ -2,9 +2,9 @@ package org.bsdclub.furuta.jalo.syntaxcheck;
 
 import java.util.HashSet;
 import java.util.Set;
-import org.bsdclub.furuta.jalo.json.JsonArray;
-import org.bsdclub.furuta.jalo.json.JsonString;
-import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloString;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 
 /**
  * Static syntactic checker for jalo JSON model AST.
@@ -27,23 +27,23 @@ public final class SyntaxChecker {
      * @param value AST node to validate
      * @throws SyntaxCheckException if name resolution or special-form syntax is invalid
      */
-    public void check(JsonValue value) {
+    public void check(JaloValue value) {
         topLevel = checkValue(value, topLevel);
     }
 
-    private Scope checkValue(JsonValue value, Scope scope) {
-        if (value instanceof JsonString s) {
+    private Scope checkValue(JaloValue value, Scope scope) {
+        if (value instanceof JaloString s) {
             if (!scope.isResolved(s.value())) {
                 throw new SyntaxCheckException("Unbound variable: " + s.value() + " in " + value);
             }
             return scope;
         }
 
-        if (!(value instanceof JsonArray array)) {
+        if (!(value instanceof JaloArray array)) {
             return scope;
         }
 
-        if (array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+        if (array.size() == 0 || !(array.get(0) instanceof JaloString op)) {
             for (int i = 0; i < array.size(); i++) {
                 checkValue(array.get(i), scope);
             }
@@ -70,22 +70,22 @@ public final class SyntaxChecker {
         };
     }
 
-    private Scope checkDef(JsonArray form, Scope scope) {
-        if (form.size() != 3 || !(form.get(1) instanceof JsonString name)) {
+    private Scope checkDef(JaloArray form, Scope scope) {
+        if (form.size() != 3 || !(form.get(1) instanceof JaloString name)) {
             throw new SyntaxCheckException("Wrong arity for def: " + form);
         }
         checkValue(form.get(2), scope);
         return scope.withBinding(name.value());
     }
 
-    private Scope checkQuote(JsonArray form, Scope scope) {
+    private Scope checkQuote(JaloArray form, Scope scope) {
         if (form.size() != 2) {
             throw new SyntaxCheckException("Wrong arity for quote: " + form);
         }
         return scope;
     }
 
-    private Scope checkBackquote(JsonArray form, Scope scope) {
+    private Scope checkBackquote(JaloArray form, Scope scope) {
         if (form.size() != 2) {
             throw new SyntaxCheckException("Wrong arity for backquote: " + form);
         }
@@ -93,8 +93,8 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private void checkPattern(JsonValue node) {
-        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+    private void checkPattern(JaloValue node) {
+        if (!(node instanceof JaloArray array) || array.size() == 0 || !(array.get(0) instanceof JaloString op)) {
             return;
         }
 
@@ -112,31 +112,31 @@ public final class SyntaxChecker {
         }
     }
 
-    private void checkDollar(JsonArray form) {
-        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+    private void checkDollar(JaloArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
             throw new SyntaxCheckException("Pattern: dollar followed by non-variable: " + form);
         }
     }
 
-    private void checkAt(JsonArray form) {
-        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+    private void checkAt(JaloArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
             throw new SyntaxCheckException("Pattern: at followed by non-variable: " + form);
         }
     }
 
-    private void checkPercent(JsonArray form) {
-        if (form.size() != 2 || !(form.get(1) instanceof JsonString)) {
+    private void checkPercent(JaloArray form) {
+        if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
             throw new SyntaxCheckException("Pattern: percent followed by non-variable: " + form);
         }
     }
 
-    private void checkPatternArray(JsonArray form) {
+    private void checkPatternArray(JaloArray form) {
         int atCount = 0;
         for (int i = 1; i < form.size(); i++) {
-            JsonValue child = form.get(i);
-            if (child instanceof JsonArray childArray
+            JaloValue child = form.get(i);
+            if (child instanceof JaloArray childArray
                     && childArray.size() > 0
-                    && childArray.get(0) instanceof JsonString op
+                    && childArray.get(0) instanceof JaloString op
                     && "at".equals(op.value())) {
                 atCount++;
             }
@@ -147,11 +147,11 @@ public final class SyntaxChecker {
         }
     }
 
-    private void checkPatternMap(JsonArray form) {
+    private void checkPatternMap(JaloArray form) {
         int percentCount = 0;
         for (int i = 1; i < form.size(); i++) {
-            JsonValue child = form.get(i);
-            if (child instanceof JsonArray childArray && childArray.size() > 0 && childArray.get(0) instanceof JsonString op) {
+            JaloValue child = form.get(i);
+            if (child instanceof JaloArray childArray && childArray.size() > 0 && childArray.get(0) instanceof JaloString op) {
                 if ("percent".equals(op.value())) {
                     percentCount++;
                     checkPattern(child);
@@ -169,8 +169,8 @@ public final class SyntaxChecker {
         }
     }
 
-    private boolean isDollarKeyEntry(JsonValue node) {
-        if (!(node instanceof JsonArray array) || array.size() == 0) {
+    private boolean isDollarKeyEntry(JaloValue node) {
+        if (!(node instanceof JaloArray array) || array.size() == 0) {
             return false;
         }
 
@@ -178,20 +178,20 @@ public final class SyntaxChecker {
             return true;
         }
 
-        if (array.size() == 1 && array.get(0) instanceof JsonArray nested) {
+        if (array.size() == 1 && array.get(0) instanceof JaloArray nested) {
             return isDollarKeyEntry(nested);
         }
         return false;
     }
 
-    private boolean isDollarForm(JsonValue node) {
-        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+    private boolean isDollarForm(JaloValue node) {
+        if (!(node instanceof JaloArray array) || array.size() == 0 || !(array.get(0) instanceof JaloString op)) {
             return false;
         }
         return "dollar".equals(op.value());
     }
 
-    private Scope checkIf(JsonArray form, Scope scope) {
+    private Scope checkIf(JaloArray form, Scope scope) {
         if (form.size() != 4) {
             throw new SyntaxCheckException("Wrong arity for if: " + form);
         }
@@ -201,13 +201,13 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private Scope checkDeclare(JsonArray form, Scope scope) {
+    private Scope checkDeclare(JaloArray form, Scope scope) {
         if (form.size() < 2) {
             throw new SyntaxCheckException("Wrong arity for declare: " + form);
         }
         Scope declared = scope;
         for (int i = 1; i < form.size(); i++) {
-            if (!(form.get(i) instanceof JsonString name)) {
+            if (!(form.get(i) instanceof JaloString name)) {
                 throw new SyntaxCheckException("declare arguments must be identifiers: " + form);
             }
             declared = declared.withDeclaration(name.value());
@@ -215,15 +215,15 @@ public final class SyntaxChecker {
         return declared;
     }
 
-    private Scope checkFn(JsonArray form, Scope scope) {
-        if (form.size() < 3 || !(form.get(1) instanceof JsonArray params)) {
+    private Scope checkFn(JaloArray form, Scope scope) {
+        if (form.size() < 3 || !(form.get(1) instanceof JaloArray params)) {
             throw new SyntaxCheckException("Wrong arity for fn: " + form);
         }
 
         Scope fnScope = scope;
         boolean restSeen = false;
         for (int i = 0; i < params.size(); i++) {
-            if (!(params.get(i) instanceof JsonString p)) {
+            if (!(params.get(i) instanceof JaloString p)) {
                 throw new SyntaxCheckException("fn params must be identifiers: " + form);
             }
 
@@ -231,7 +231,7 @@ public final class SyntaxChecker {
                 if (restSeen || i != params.size() - 2) {
                     throw new SyntaxCheckException("fn rest marker '&' must appear once before rest param: " + form);
                 }
-                if (!(params.get(i + 1) instanceof JsonString restParam) || "&".equals(restParam.value())) {
+                if (!(params.get(i + 1) instanceof JaloString restParam) || "&".equals(restParam.value())) {
                     throw new SyntaxCheckException("fn rest parameter must be one identifier: " + form);
                 }
                 fnScope = fnScope.withBinding(restParam.value());
@@ -249,9 +249,9 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private Scope checkLet(JsonArray form, Scope scope, boolean sequential) {
+    private Scope checkLet(JaloArray form, Scope scope, boolean sequential) {
         String formName = sequential ? "let*" : "let";
-        if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings)) {
+        if (form.size() < 3 || !(form.get(1) instanceof JaloArray bindings)) {
             throw new SyntaxCheckException("Wrong arity for " + formName + ": " + form);
         }
         if (bindings.size() % 2 != 0) {
@@ -261,7 +261,7 @@ public final class SyntaxChecker {
         Scope bodyScope = scope;
         Scope evalScope = scope;
         for (int i = 0; i < bindings.size(); i += 2) {
-            if (!(bindings.get(i) instanceof JsonString name)) {
+            if (!(bindings.get(i) instanceof JaloString name)) {
                 throw new SyntaxCheckException("binding name must be identifier: " + form);
             }
             checkValue(bindings.get(i + 1), sequential ? evalScope : scope);
@@ -277,14 +277,14 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private Scope checkLetRec(JsonArray form, Scope scope) {
-        if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings) || bindings.size() % 2 != 0) {
+    private Scope checkLetRec(JaloArray form, Scope scope) {
+        if (form.size() < 3 || !(form.get(1) instanceof JaloArray bindings) || bindings.size() % 2 != 0) {
             throw new SyntaxCheckException("Wrong arity for letrec: " + form);
         }
 
         Scope recScope = scope;
         for (int i = 0; i < bindings.size(); i += 2) {
-            if (!(bindings.get(i) instanceof JsonString name)) {
+            if (!(bindings.get(i) instanceof JaloString name)) {
                 throw new SyntaxCheckException("binding name must be identifier: " + form);
             }
             recScope = recScope.withBinding(name.value());
@@ -299,13 +299,13 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private Scope checkMatch(JsonArray form, Scope scope) {
+    private Scope checkMatch(JaloArray form, Scope scope) {
         if (form.size() < 4 || ((form.size() - 2) % 2 != 0)) {
             throw new SyntaxCheckException("Wrong arity for match: " + form);
         }
         checkValue(form.get(1), scope);
         for (int i = 2; i < form.size(); i += 2) {
-            JsonValue pattern = form.get(i);
+            JaloValue pattern = form.get(i);
             checkPattern(pattern);
             Scope branchScope = scope.bindAll(collectPatternBindings(pattern));
             checkValue(form.get(i + 1), branchScope);
@@ -313,19 +313,19 @@ public final class SyntaxChecker {
         return scope;
     }
 
-    private Set<String> collectPatternBindings(JsonValue pattern) {
+    private Set<String> collectPatternBindings(JaloValue pattern) {
         Set<String> names = new HashSet<>();
         collectPatternBindingsInto(pattern, names);
         return names;
     }
 
-    private void collectPatternBindingsInto(JsonValue node, Set<String> names) {
-        if (!(node instanceof JsonArray array) || array.size() == 0 || !(array.get(0) instanceof JsonString op)) {
+    private void collectPatternBindingsInto(JaloValue node, Set<String> names) {
+        if (!(node instanceof JaloArray array) || array.size() == 0 || !(array.get(0) instanceof JaloString op)) {
             return;
         }
         switch (op.value()) {
             case "dollar", "at", "percent" -> {
-                if (array.size() == 2 && array.get(1) instanceof JsonString name && !"_".equals(name.value())) {
+                if (array.size() == 2 && array.get(1) instanceof JaloString name && !"_".equals(name.value())) {
                     names.add(name.value());
                 }
             }

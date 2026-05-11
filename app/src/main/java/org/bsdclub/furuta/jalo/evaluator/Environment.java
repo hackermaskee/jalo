@@ -2,7 +2,7 @@ package org.bsdclub.furuta.jalo.evaluator;
 
 import java.util.HashMap;
 import java.util.Map;
-import org.bsdclub.furuta.jalo.json.JsonString;
+import org.bsdclub.furuta.jalo.value.JaloString;
 import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
@@ -112,6 +112,6 @@ public final class Environment {
         if (globalBindings.containsKey(name)) {
             return globalBindings.get(name);
         }
-        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Unbound variable: " + name));
+        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Unbound variable: " + name));
     }
 }

@@ -1,13 +1,13 @@
 package org.bsdclub.furuta.jalo.parser;
 
 import java.util.List;
-import org.bsdclub.furuta.jalo.json.JsonArray;
-import org.bsdclub.furuta.jalo.json.JsonBool;
-import org.bsdclub.furuta.jalo.json.JsonNull;
-import org.bsdclub.furuta.jalo.json.JsonNumber;
-import org.bsdclub.furuta.jalo.json.JsonObject;
-import org.bsdclub.furuta.jalo.json.JsonString;
-import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloNull;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
+import org.bsdclub.furuta.jalo.value.JaloMap;
+import org.bsdclub.furuta.jalo.value.JaloString;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.bsdclub.furuta.jalo.lexer.Token;
 
 /**
@@ -35,7 +35,7 @@ public final class Parser {
      * @return the parsed JSON-model tree
      * @throws ParserException if the token stream violates the selected grammar (SPEC §3.2, §4)
      */
-    public JsonValue parse(List<Token> tokens, ParseMode mode) {
+    public JaloValue parse(List<Token> tokens, ParseMode mode) {
         return switch (mode) {
             case JSON -> parseJson(tokens);
             case STANDARD -> parseStandard(tokens);
@@ -49,10 +49,10 @@ public final class Parser {
      * @return the parsed JSON value
      * @throws ParserException if the token stream is not valid JSON (SPEC §3.2)
      */
-    public JsonValue parseJson(List<Token> tokens) {
+    public JaloValue parseJson(List<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;
-        JsonValue value = parseValue();
+        JaloValue value = parseValue();
         if (!(peek() instanceof Token.Eof)) {
             Token token = peek();
             throw new ParserException("Unexpected token after JSON value", token.line(), token.col());
@@ -69,10 +69,10 @@ public final class Parser {
      *
      * @implNote Requires explicit mode selection by callers to avoid ambiguous auto-detection.
      */
-    public JsonValue parseStandard(List<Token> tokens) {
+    public JaloValue parseStandard(List<Token> tokens) {
         this.tokens = tokens;
         this.index = 0;
-        JsonValue value = parseExpr(false);
+        JaloValue value = parseExpr(false);
         if (!(peek() instanceof Token.Eof)) {
             Token token = peek();
             throw new ParserException("Unexpected token after standard value", token.line(), token.col());
@@ -87,55 +87,55 @@ public final class Parser {
      * @return parsed expression
      * @throws ParserException if parsing fails due to invalid syntax
      */
-    private JsonValue parseExpr(boolean inBackquote) {
+    private JaloValue parseExpr(boolean inBackquote) {
         Token token = peek();
         return switch (token) {
-            case Token.Null t -> { advance(); yield JsonNull.INSTANCE; }
-            case Token.True t -> { advance(); yield JsonBool.TRUE; }
-            case Token.False t -> { advance(); yield JsonBool.FALSE; }
-            case Token.NumberDouble t -> { advance(); yield new JsonNumber(t.value()); }
+            case Token.Null t -> { advance(); yield JaloNull.INSTANCE; }
+            case Token.True t -> { advance(); yield JaloBool.TRUE; }
+            case Token.False t -> { advance(); yield JaloBool.FALSE; }
+            case Token.NumberDouble t -> { advance(); yield new JaloNumber(t.value()); }
             case Token.NumberInt t -> {
                 advance();
-                yield JsonArray.of(new JsonString("int"), new JsonNumber(t.value()));
+                yield JaloArray.of(new JaloString("int"), new JaloNumber(t.value()));
             }
             case Token.NumberLong t -> {
                 advance();
-                yield JsonArray.of(new JsonString("long"), new JsonNumber(t.value()));
+                yield JaloArray.of(new JaloString("long"), new JaloNumber(t.value()));
             }
-            case Token.Str t -> { advance(); yield new JsonString(t.value()); }
-            case Token.Identifier t -> { advance(); yield new JsonString(t.name()); }
+            case Token.Str t -> { advance(); yield new JaloString(t.value()); }
+            case Token.Identifier t -> { advance(); yield new JaloString(t.name()); }
             case Token.Quote t -> {
                 advance();
                 Token next = peek();
                 if (next instanceof Token.Eof || next instanceof Token.RParen || next instanceof Token.RBracket) {
                     throw new ParserException("unexpected end of expression after quote shorthand", next.line(), next.col());
                 }
-                yield JsonArray.of(new JsonString("quote"), parseExpr(inBackquote));
+                yield JaloArray.of(new JaloString("quote"), parseExpr(inBackquote));
             }
             case Token.Backquote t -> {
                 advance();
-                yield JsonArray.of(new JsonString("backquote"), parseExpr(true));
+                yield JaloArray.of(new JaloString("backquote"), parseExpr(true));
             }
             case Token.Dollar t -> {
                 if (!inBackquote) {
                     throw new ParserException("$ outside backquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JsonArray.of(new JsonString("dollar"), parseExpr(false));
+                yield JaloArray.of(new JaloString("dollar"), parseExpr(false));
             }
             case Token.At t -> {
                 if (!inBackquote) {
                     throw new ParserException("@ outside backquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JsonArray.of(new JsonString("at"), parseExpr(false));
+                yield JaloArray.of(new JaloString("at"), parseExpr(false));
             }
             case Token.Percent t -> {
                 if (!inBackquote) {
                     throw new ParserException("% outside backquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JsonArray.of(new JsonString("percent"), parseExpr(false));
+                yield JaloArray.of(new JaloString("percent"), parseExpr(false));
             }
             case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]", inBackquote);
             case Token.LParen t -> parseStandardArray(Token.LParen.class, Token.RParen.class, ")");
@@ -145,16 +145,16 @@ public final class Parser {
         };
     }
 
-    private JsonArray parseStandardArray(Class<? extends Token> leftType, Class<? extends Token> rightType, String right) {
+    private JaloArray parseStandardArray(Class<? extends Token> leftType, Class<? extends Token> rightType, String right) {
         return parseStandardArray(leftType, rightType, right, false);
     }
 
-    private JsonArray parseStandardArray(
+    private JaloArray parseStandardArray(
             Class<? extends Token> leftType, Class<? extends Token> rightType, String right, boolean inBackquote) {
         expect(leftType, "Expected array opener");
-        JsonArray arr = inBackquote && leftType.equals(Token.LBracket.class)
-                ? JsonArray.of(new JsonString("array"))
-                : JsonArray.empty();
+        JaloArray arr = inBackquote && leftType.equals(Token.LBracket.class)
+                ? JaloArray.of(new JaloString("array"))
+                : JaloArray.empty();
         while (true) {
             Token token = peek();
             if (rightType.isInstance(token)) {
@@ -171,10 +171,10 @@ public final class Parser {
         }
     }
 
-    private JsonValue parseStandardObject(boolean inBackquote) {
+    private JaloValue parseStandardObject(boolean inBackquote) {
         expect(Token.LBrace.class, "Expected '{'");
-        JsonObject obj = JsonObject.empty();
-        JsonArray mapForm = JsonArray.of(new JsonString("map"));
+        JaloMap obj = JaloMap.empty();
+        JaloArray mapForm = JaloArray.of(new JaloString("map"));
         while (true) {
             Token token = peek();
             if (token instanceof Token.RBrace) {
@@ -202,9 +202,9 @@ public final class Parser {
                 throw new ParserException("Expected ':' after key", colon.line(), colon.col());
             }
             advance();
-            JsonValue value = parseExpr(inBackquote);
+            JaloValue value = parseExpr(inBackquote);
             if (inBackquote) {
-                mapForm = mapForm.append(JsonArray.of(new JsonString(key), value));
+                mapForm = mapForm.append(JaloArray.of(new JaloString(key), value));
             } else {
                 obj = obj.put(key, value);
             }
@@ -214,22 +214,22 @@ public final class Parser {
         }
     }
 
-    private JsonValue parseValue() {
+    private JaloValue parseValue() {
         Token token = peek();
         return switch (token) {
-            case Token.Null t -> { advance(); yield JsonNull.INSTANCE; }
-            case Token.True t -> { advance(); yield JsonBool.TRUE; }
-            case Token.False t -> { advance(); yield JsonBool.FALSE; }
-            case Token.NumberDouble t -> { advance(); yield new JsonNumber(t.value()); }
-            case Token.NumberInt t -> { advance(); yield new JsonNumber(t.value()); }
-            case Token.NumberLong t -> { advance(); yield new JsonNumber(t.value()); }
-            case Token.Str t -> { advance(); yield new JsonString(t.value()); }
+            case Token.Null t -> { advance(); yield JaloNull.INSTANCE; }
+            case Token.True t -> { advance(); yield JaloBool.TRUE; }
+            case Token.False t -> { advance(); yield JaloBool.FALSE; }
+            case Token.NumberDouble t -> { advance(); yield new JaloNumber(t.value()); }
+            case Token.NumberInt t -> { advance(); yield new JaloNumber(t.value()); }
+            case Token.NumberLong t -> { advance(); yield new JaloNumber(t.value()); }
+            case Token.Str t -> { advance(); yield new JaloString(t.value()); }
             case Token.Identifier t -> {
                 advance();
                 yield switch (t.name()) {
-                    case "null" -> JsonNull.INSTANCE;
-                    case "true" -> JsonBool.TRUE;
-                    case "false" -> JsonBool.FALSE;
+                    case "null" -> JaloNull.INSTANCE;
+                    case "true" -> JaloBool.TRUE;
+                    case "false" -> JaloBool.FALSE;
                     default -> throw new ParserException("Unexpected identifier: " + t.name(), t.line(), t.col());
                 };
             }
@@ -240,9 +240,9 @@ public final class Parser {
         };
     }
 
-    private JsonArray parseArray() {
+    private JaloArray parseArray() {
         expect(Token.LBracket.class, "Expected '['");
-        JsonArray arr = JsonArray.empty();
+        JaloArray arr = JaloArray.empty();
         if (peek() instanceof Token.RBracket) {
             advance();
             return arr;
@@ -269,9 +269,9 @@ public final class Parser {
         }
     }
 
-    private JsonObject parseObject() {
+    private JaloMap parseObject() {
         expect(Token.LBrace.class, "Expected '{'");
-        JsonObject obj = JsonObject.empty();
+        JaloMap obj = JaloMap.empty();
         if (peek() instanceof Token.RBrace) {
             advance();
             return obj;

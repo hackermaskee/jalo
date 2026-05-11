@@ -11,16 +11,15 @@ import org.bsdclub.furuta.jalo.evaluator.builtins.ArrayBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.MapBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.SeqBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
-import org.bsdclub.furuta.jalo.json.JsonArray;
-import org.bsdclub.furuta.jalo.json.JsonBool;
-import org.bsdclub.furuta.jalo.json.JsonNull;
-import org.bsdclub.furuta.jalo.json.JsonNumber;
-import org.bsdclub.furuta.jalo.json.JsonObject;
-import org.bsdclub.furuta.jalo.json.JsonString;
-import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloNull;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
+import org.bsdclub.furuta.jalo.value.JaloMap;
+import org.bsdclub.furuta.jalo.value.JaloString;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
-import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.organicdesign.fp.collections.PersistentHashMap;
 
 /**
@@ -58,7 +57,7 @@ public final class Evaluator {
      * @param ast AST node to evaluate
      * @return evaluated value
      */
-    public JaloValue eval(JsonValue ast) {
+    public JaloValue eval(JaloValue ast) {
         return eval(ast, globalEnv);
     }
 
@@ -68,24 +67,24 @@ public final class Evaluator {
      * @param ast AST node to evaluate
      * @param env environment used for name resolution
      * @return evaluated value
-     * @implSpec Dispatches via sealed switch on {@link JsonValue} subtypes.
-     *           Adding a new {@link JsonValue} subtype requires updating this
+     * @implSpec Dispatches via sealed switch on {@link JaloValue} subtypes.
+     *           Adding a new {@link JaloValue} subtype requires updating this
      *           switch (compiler-enforced via sealed permits).
      */
-    public JaloValue eval(JsonValue ast, Environment env) {
-        if (ast instanceof JsonNull || ast instanceof JsonBool || ast instanceof JsonNumber) {
+    public JaloValue eval(JaloValue ast, Environment env) {
+        if (ast instanceof JaloNull || ast instanceof JaloBool || ast instanceof JaloNumber) {
             return ast;
         }
-        if (ast instanceof JsonString s) {
+        if (ast instanceof JaloString s) {
             return env.lookup(s.value());
         }
-        if (!(ast instanceof JsonArray form)) {
+        if (!(ast instanceof JaloArray form)) {
             return ast;
         }
         if (form.size() == 0) {
             return form;
         }
-        if (!(form.get(0) instanceof JsonString op)) {
+        if (!(form.get(0) instanceof JaloString op)) {
             return applyForm(form, env);
         }
 
@@ -115,9 +114,9 @@ public final class Evaluator {
      * @return the selected branch value or {@code #null} when all patterns fail
      * @throws JaloEffectSignal if the form arity is invalid
      */
-    private JaloValue evalMatch(JsonArray form, Environment env) {
+    private JaloValue evalMatch(JaloArray form, Environment env) {
         if (form.size() < 4 || ((form.size() - 2) % 2 != 0)) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for match"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for match"));
         }
         JaloValue value = eval(form.get(1), env);
         PatternMatcher matcher = new PatternMatcher(this);
@@ -128,19 +127,19 @@ public final class Evaluator {
                 return eval(form.get(i + 1), branchEnv);
             }
         }
-        return JsonNull.INSTANCE;
+        return JaloNull.INSTANCE;
     }
 
-    private JaloValue evalError(JsonArray form, Environment env) {
+    private JaloValue evalError(JaloArray form, Environment env) {
         if (form.size() != 2) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for error"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for error"));
         }
-        throw new JaloEffectSignal(new JsonString("error"), eval(form.get(1), env));
+        throw new JaloEffectSignal(new JaloString("error"), eval(form.get(1), env));
     }
 
-    private JaloValue evalQuote(JsonArray form) {
+    private JaloValue evalQuote(JaloArray form) {
         if (form.size() != 2) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for quote"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for quote"));
         }
         return (JaloValue) form.get(1);
     }
@@ -157,28 +156,28 @@ public final class Evaluator {
      * @throws JaloEffectSignal with effect {@code "error"} if the form is malformed
      *                          or a splice target has an unexpected type
      */
-    private JaloValue evalBackquote(JsonArray form, Environment env) {
+    private JaloValue evalBackquote(JaloArray form, Environment env) {
         if (form.size() != 2) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for backquote"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for backquote"));
         }
         return constructFromPattern(form.get(1), env);
     }
 
-    private JsonValue constructFromPattern(JsonValue node, Environment env) {
-        if (!(node instanceof JsonArray form)) {
+    private JaloValue constructFromPattern(JaloValue node, Environment env) {
+        if (!(node instanceof JaloArray form)) {
             return node;
         }
         if (form.size() == 0) {
             return form;
         }
-        if (!(form.get(0) instanceof JsonString opNode)) {
+        if (!(form.get(0) instanceof JaloString opNode)) {
             return form;
         }
 
         return switch (opNode.value()) {
             case "dollar" -> {
                 if (form.size() != 2) {
-                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("Malformed dollar form"));
+                    throw new JaloEffectSignal(new JaloString("error"), new JaloString("Malformed dollar form"));
                 }
                 yield toJsonValue(eval(form.get(1), env));
             }
@@ -189,17 +188,17 @@ public final class Evaluator {
         };
     }
 
-    private JsonArray spliceArray(JsonArray form, Environment env) {
-        JsonArray result = JsonArray.empty();
+    private JaloArray spliceArray(JaloArray form, Environment env) {
+        JaloArray result = JaloArray.empty();
         for (int i = 1; i < form.size(); i++) {
-            JsonValue elt = form.get(i);
-            if (elt instanceof JsonArray inner
+            JaloValue elt = form.get(i);
+            if (elt instanceof JaloArray inner
                     && inner.size() == 2
-                    && inner.get(0) instanceof JsonString op
+                    && inner.get(0) instanceof JaloString op
                     && "at".equals(op.value())) {
                 JaloValue arr = eval(inner.get(1), env);
-                if (!(arr instanceof JsonArray a)) {
-                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("splice target must be array"));
+                if (!(arr instanceof JaloArray a)) {
+                    throw new JaloEffectSignal(new JaloString("error"), new JaloString("splice target must be array"));
                 }
                 for (int j = 0; j < a.size(); j++) {
                     result = result.append(a.get(j));
@@ -211,69 +210,69 @@ public final class Evaluator {
         return result;
     }
 
-    private JsonObject spliceMap(JsonArray form, Environment env) {
-        JsonObject result = JsonObject.empty();
+    private JaloMap spliceMap(JaloArray form, Environment env) {
+        JaloMap result = JaloMap.empty();
         for (int i = 1; i < form.size(); i++) {
-            JsonValue ent = form.get(i);
-            if (!(ent instanceof JsonArray entry) || entry.size() < 2) {
+            JaloValue ent = form.get(i);
+            if (!(ent instanceof JaloArray entry) || entry.size() < 2) {
                 continue;
             }
-            JsonValue head = entry.get(0);
-            if (head instanceof JsonString op && "percent".equals(op.value())) {
+            JaloValue head = entry.get(0);
+            if (head instanceof JaloString op && "percent".equals(op.value())) {
                 JaloValue extra = eval(entry.get(1), env);
-                if (!(extra instanceof JsonObject obj)) {
-                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("percent splice target must be map"));
+                if (!(extra instanceof JaloMap obj)) {
+                    throw new JaloEffectSignal(new JaloString("error"), new JaloString("percent splice target must be map"));
                 }
-                for (Map.Entry<String, JsonValue> e : obj.entries().entrySet()) {
+                for (Map.Entry<String, JaloValue> e : obj.entries().entrySet()) {
                     result = result.put(e.getKey(), e.getValue());
                 }
-            } else if (head instanceof JsonString key) {
+            } else if (head instanceof JaloString key) {
                 result = result.put(key.value(), constructFromPattern(entry.get(1), env));
             }
         }
         return result;
     }
 
-    private JaloValue evalIf(JsonArray form, Environment env) {
+    private JaloValue evalIf(JaloArray form, Environment env) {
         if (form.size() != 4) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for if"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for if"));
         }
         JaloValue cond = eval(form.get(1), env);
-        boolean truthy = !(cond == JsonNull.INSTANCE || JsonBool.FALSE.equals(cond));
-        return eval((JsonValue) (truthy ? form.get(2) : form.get(3)), env);
+        boolean truthy = !(cond == JaloNull.INSTANCE || JaloBool.FALSE.equals(cond));
+        return eval((JaloValue) (truthy ? form.get(2) : form.get(3)), env);
     }
 
-    private JaloValue evalDef(JsonArray form, Environment env) {
-        if (form.size() != 3 || !(form.get(1) instanceof JsonString name)) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for def"));
+    private JaloValue evalDef(JaloArray form, Environment env) {
+        if (form.size() != 3 || !(form.get(1) instanceof JaloString name)) {
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for def"));
         }
         JaloValue value = eval(form.get(2), env);
         globalEnv.defineGlobal(name.value(), value);
-        return JsonNull.INSTANCE;
+        return JaloNull.INSTANCE;
     }
 
-    private JaloValue evalDeclare(JsonArray form) {
+    private JaloValue evalDeclare(JaloArray form) {
         if (form.size() < 2) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for declare"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for declare"));
         }
         for (int i = 1; i < form.size(); i++) {
-            if (!(form.get(i) instanceof JsonString)) {
-                throw new JaloEffectSignal(new JsonString("error"), new JsonString("declare arguments must be identifiers"));
+            if (!(form.get(i) instanceof JaloString)) {
+                throw new JaloEffectSignal(new JaloString("error"), new JaloString("declare arguments must be identifiers"));
             }
         }
-        return JsonNull.INSTANCE;
+        return JaloNull.INSTANCE;
     }
 
-    private JaloValue evalLet(JsonArray form, Environment env, boolean sequential) {
-        if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings) || bindings.size() % 2 != 0) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Malformed let"));
+    private JaloValue evalLet(JaloArray form, Environment env, boolean sequential) {
+        if (form.size() < 3 || !(form.get(1) instanceof JaloArray bindings) || bindings.size() % 2 != 0) {
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Malformed let"));
         }
 
         Environment bodyEnv = env;
         Environment evalEnv = env;
         for (int i = 0; i < bindings.size(); i += 2) {
-            if (!(bindings.get(i) instanceof JsonString name)) {
-                throw new JaloEffectSignal(new JsonString("error"), new JsonString("binding name must be identifier"));
+            if (!(bindings.get(i) instanceof JaloString name)) {
+                throw new JaloEffectSignal(new JaloString("error"), new JaloString("binding name must be identifier"));
             }
             JaloValue value = eval(bindings.get(i + 1), sequential ? evalEnv : env);
             bodyEnv = bodyEnv.bind(name.value(), value);
@@ -282,31 +281,31 @@ public final class Evaluator {
             }
         }
 
-        JaloValue result = JsonNull.INSTANCE;
+        JaloValue result = JaloNull.INSTANCE;
         for (int i = 2; i < form.size(); i++) {
             result = eval(form.get(i), bodyEnv);
         }
         return result;
     }
 
-    private JaloValue evalLetRec(JsonArray form, Environment env) {
-        if (form.size() < 3 || !(form.get(1) instanceof JsonArray bindings) || bindings.size() % 2 != 0) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Malformed letrec"));
+    private JaloValue evalLetRec(JaloArray form, Environment env) {
+        if (form.size() < 3 || !(form.get(1) instanceof JaloArray bindings) || bindings.size() % 2 != 0) {
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Malformed letrec"));
         }
 
         List<String> names = new ArrayList<>();
         Map<String, Boolean> hadGlobal = new LinkedHashMap<>();
         Map<String, JaloValue> oldGlobal = new LinkedHashMap<>();
         for (int i = 0; i < bindings.size(); i += 2) {
-            if (!(bindings.get(i) instanceof JsonString name)) {
-                throw new JaloEffectSignal(new JsonString("error"), new JsonString("binding name must be identifier"));
+            if (!(bindings.get(i) instanceof JaloString name)) {
+                throw new JaloEffectSignal(new JaloString("error"), new JaloString("binding name must be identifier"));
             }
             names.add(name.value());
             hadGlobal.put(name.value(), globalEnv.hasGlobal(name.value()));
             if (globalEnv.hasGlobal(name.value())) {
                 oldGlobal.put(name.value(), globalEnv.getGlobal(name.value()));
             }
-            globalEnv.defineGlobal(name.value(), JsonNull.INSTANCE);
+            globalEnv.defineGlobal(name.value(), JaloNull.INSTANCE);
         }
 
         try {
@@ -315,7 +314,7 @@ public final class Evaluator {
                 globalEnv.defineGlobal(names.get(i), actual);
             }
 
-            JaloValue result = JsonNull.INSTANCE;
+            JaloValue result = JaloNull.INSTANCE;
             for (int i = 2; i < form.size(); i++) {
                 result = eval(form.get(i), env);
             }
@@ -331,25 +330,25 @@ public final class Evaluator {
         }
     }
 
-    private JaloValue evalRaise(JsonArray form, Environment env) {
+    private JaloValue evalRaise(JaloArray form, Environment env) {
         if (form.size() != 3) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for raise"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for raise"));
         }
         JaloValue tag = eval(form.get(1), env);
         JaloValue value = eval(form.get(2), env);
         throw new JaloEffectSignal(tag, value);
     }
 
-    private JaloValue evalHandle(JsonArray form, Environment env) {
+    private JaloValue evalHandle(JaloArray form, Environment env) {
         if (form.size() < 3) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for handle"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for handle"));
         }
         try {
             return eval(form.get(1), env);
         } catch (JaloEffectSignal sig) {
             for (int i = 2; i < form.size(); i++) {
-                if (!(form.get(i) instanceof JsonArray handler) || handler.size() != 3 || !(handler.get(1) instanceof JsonString varName)) {
-                    throw new JaloEffectSignal(new JsonString("error"), new JsonString("Malformed handle clause"));
+                if (!(form.get(i) instanceof JaloArray handler) || handler.size() != 3 || !(handler.get(1) instanceof JaloString varName)) {
+                    throw new JaloEffectSignal(new JaloString("error"), new JaloString("Malformed handle clause"));
                 }
                 JaloValue handlerTag = eval(handler.get(0), env);
                 if (handlerTag.equals(sig.tag())) {
@@ -361,21 +360,21 @@ public final class Evaluator {
         }
     }
 
-    private JaloValue applyForm(JsonArray form, Environment env) {
+    private JaloValue applyForm(JaloArray form, Environment env) {
         if (form.size() == 0) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Cannot apply empty list"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Cannot apply empty list"));
         }
 
-        if (form.get(0) instanceof JsonString op) {
+        if (form.get(0) instanceof JaloString op) {
             switch (op.value()) {
                 case "int":
                     if (form.size() != 2) {
-                        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for numeric wrapper"));
+                        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for numeric wrapper"));
                     }
                     return new JaloInt((int) asNumeric(eval(form.get(1), env)).asLong());
                 case "long":
                     if (form.size() != 2) {
-                        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for numeric wrapper"));
+                        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for numeric wrapper"));
                     }
                     return new JaloLong(asNumeric(eval(form.get(1), env)).asLong());
                 case "+":
@@ -389,25 +388,25 @@ public final class Evaluator {
                 case "=":
                     return eq(eval(form.get(1), env), eval(form.get(2), env));
                 case "<":
-                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) < 0 ? JsonBool.TRUE : JsonBool.FALSE;
+                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) < 0 ? JaloBool.TRUE : JaloBool.FALSE;
                 case ">":
-                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) > 0 ? JsonBool.TRUE : JsonBool.FALSE;
+                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) > 0 ? JaloBool.TRUE : JaloBool.FALSE;
                 case "<=":
-                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) <= 0 ? JsonBool.TRUE : JsonBool.FALSE;
+                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) <= 0 ? JaloBool.TRUE : JaloBool.FALSE;
                 case ">=":
-                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) >= 0 ? JsonBool.TRUE : JsonBool.FALSE;
+                    return cmp(eval(form.get(1), env), eval(form.get(2), env)) >= 0 ? JaloBool.TRUE : JaloBool.FALSE;
                 case "number?":
                     return bool(form.size() == 2 && isNumber(eval(form.get(1), env)));
                 case "string?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JsonString);
+                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloString);
                 case "array?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JsonArray);
+                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloArray);
                 case "object?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof org.bsdclub.furuta.jalo.json.JsonObject);
+                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof org.bsdclub.furuta.jalo.value.JaloMap);
                 case "boolean?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JsonBool);
+                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloBool);
                 case "null?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JsonNull);
+                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloNull);
                 case "fn?":
                     return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloFunction);
                 case "type":
@@ -427,7 +426,7 @@ public final class Evaluator {
 
         JaloValue fnVal = eval(form.get(0), env);
         if (!(fnVal instanceof JaloFunction fn)) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("First position is not function"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("First position is not function"));
         }
         List<JaloValue> args = new ArrayList<>();
         for (int i = 1; i < form.size(); i++) {
@@ -436,21 +435,21 @@ public final class Evaluator {
         return fn.apply(args, this);
     }
 
-    private JaloValue typeOf(JsonArray form, Environment env) {
+    private JaloValue typeOf(JaloArray form, Environment env) {
         if (form.size() != 2) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Wrong arity for type"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for type"));
         }
         JaloValue v = eval(form.get(1), env);
-        if (v instanceof JsonNull) return new JsonString("null");
-        if (v instanceof JsonBool) return new JsonString("boolean");
-        if (v instanceof JsonNumber) return new JsonString("double");
-        if (v instanceof JsonString) return new JsonString("string");
-        if (v instanceof JsonArray) return new JsonString("array");
-        if (v instanceof org.bsdclub.furuta.jalo.json.JsonObject) return new JsonString("object");
-        if (v instanceof JaloInt) return new JsonString("int");
-        if (v instanceof JaloLong) return new JsonString("long");
-        if (v instanceof JaloFunction) return new JsonString("function");
-        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Unknown type"));
+        if (v instanceof JaloNull) return new JaloString("null");
+        if (v instanceof JaloBool) return new JaloString("boolean");
+        if (v instanceof JaloNumber) return new JaloString("double");
+        if (v instanceof JaloString) return new JaloString("string");
+        if (v instanceof JaloArray) return new JaloString("array");
+        if (v instanceof org.bsdclub.furuta.jalo.value.JaloMap) return new JaloString("object");
+        if (v instanceof JaloInt) return new JaloString("int");
+        if (v instanceof JaloLong) return new JaloString("long");
+        if (v instanceof JaloFunction) return new JaloString("function");
+        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Unknown type"));
     }
 
     private JaloValue add(JaloValue l, JaloValue r) { return numericBinary(l, r, '+'); }
@@ -461,7 +460,7 @@ public final class Evaluator {
         Numeric left = asNumeric(l);
         Numeric right = asNumeric(r);
         if (right.asDouble() == 0.0 && left.integral() && right.integral()) {
-            throw new JaloEffectSignal(new JsonString("error"), new JsonString("Division by zero"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Division by zero"));
         }
         return numericResult(left, right, left.asDouble() / right.asDouble());
     }
@@ -469,7 +468,7 @@ public final class Evaluator {
     private JaloValue eq(JaloValue l, JaloValue r) {
         Numeric left = asNumeric(l);
         Numeric right = asNumeric(r);
-        return left.asDouble() == right.asDouble() ? JsonBool.TRUE : JsonBool.FALSE;
+        return left.asDouble() == right.asDouble() ? JaloBool.TRUE : JaloBool.FALSE;
     }
 
     private int cmp(JaloValue l, JaloValue r) {
@@ -497,19 +496,19 @@ public final class Evaluator {
             }
             return new JaloInt((int) result);
         }
-        return new JsonNumber(result);
+        return new JaloNumber(result);
     }
 
-    private JsonBool bool(boolean b) {
-        return b ? JsonBool.TRUE : JsonBool.FALSE;
+    private JaloBool bool(boolean b) {
+        return b ? JaloBool.TRUE : JaloBool.FALSE;
     }
 
     private boolean isNumber(JaloValue value) {
-        return value instanceof JsonNumber || value instanceof JaloInt || value instanceof JaloLong;
+        return value instanceof JaloNumber || value instanceof JaloInt || value instanceof JaloLong;
     }
 
     private Numeric asNumeric(JaloValue value) {
-        if (value instanceof JsonNumber n) {
+        if (value instanceof JaloNumber n) {
             return new Numeric(n.value(), true, false);
         }
         if (value instanceof JaloInt n) {
@@ -518,20 +517,13 @@ public final class Evaluator {
         if (value instanceof JaloLong n) {
             return new Numeric(n.value(), false, true);
         }
-        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Expected number"));
+        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Expected number"));
     }
 
-    private JsonValue toJsonValue(JaloValue value) {
-        if (value instanceof JsonValue jsonValue) {
-            return jsonValue;
-        }
-        if (value instanceof JaloInt n) {
-            return new JsonNumber(n.value());
-        }
-        if (value instanceof JaloLong n) {
-            return new JsonNumber(n.value());
-        }
-        throw new JaloEffectSignal(new JsonString("error"), new JsonString("Backquote can only embed JSON-compatible values"));
+    private JaloValue toJsonValue(JaloValue value) {
+        if (value instanceof JaloInt n) return new JaloNumber(n.value());
+        if (value instanceof JaloLong n) return new JaloNumber(n.value());
+        return value;
     }
 
     private record Numeric(double asDouble, boolean isDouble, boolean isLong) {

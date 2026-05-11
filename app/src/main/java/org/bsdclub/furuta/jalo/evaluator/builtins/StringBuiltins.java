@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
-import org.bsdclub.furuta.jalo.json.JsonArray;
-import org.bsdclub.furuta.jalo.json.JsonBool;
-import org.bsdclub.furuta.jalo.json.JsonNumber;
-import org.bsdclub.furuta.jalo.json.JsonString;
+import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
+import org.bsdclub.furuta.jalo.value.JaloString;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloValue;
@@ -31,7 +31,7 @@ public final class StringBuiltins {
             if (idx < 0 || idx >= s.length()) {
                 throw error("index out of range");
             }
-            return new JsonString(String.valueOf(s.charAt(idx)));
+            return new JaloString(String.valueOf(s.charAt(idx)));
         });
         registry.register("subs", (args, env) -> {
             String s = requireString("subs", args, 3, 0);
@@ -40,11 +40,11 @@ public final class StringBuiltins {
             if (start < 0 || end < start || end > s.length()) {
                 throw error("index out of range");
             }
-            return new JsonString(s.substring(start, end));
+            return new JaloString(s.substring(start, end));
         });
-        registry.register("str-upper", (args, env) -> new JsonString(requireString("str-upper", args, 1, 0).toUpperCase()));
-        registry.register("str-lower", (args, env) -> new JsonString(requireString("str-lower", args, 1, 0).toLowerCase()));
-        registry.register("str-trim", (args, env) -> new JsonString(requireString("str-trim", args, 1, 0).trim()));
+        registry.register("str-upper", (args, env) -> new JaloString(requireString("str-upper", args, 1, 0).toUpperCase()));
+        registry.register("str-lower", (args, env) -> new JaloString(requireString("str-lower", args, 1, 0).toLowerCase()));
+        registry.register("str-trim", (args, env) -> new JaloString(requireString("str-trim", args, 1, 0).trim()));
         registry.register("str-starts-with?", (args, env) -> bool(requireString("str-starts-with?", args, 2, 0).startsWith(requireString("str-starts-with?", args, 2, 1))));
         registry.register("str-ends-with?", (args, env) -> bool(requireString("str-ends-with?", args, 2, 0).endsWith(requireString("str-ends-with?", args, 2, 1))));
         registry.register("str-contains?", (args, env) -> bool(requireString("str-contains?", args, 2, 0).contains(requireString("str-contains?", args, 2, 1))));
@@ -52,23 +52,23 @@ public final class StringBuiltins {
             String s = requireString("str-split", args, 2, 0);
             String sep = requireString("str-split", args, 2, 1);
             String[] parts = s.split(java.util.regex.Pattern.quote(sep), -1);
-            JsonArray arr = JsonArray.empty();
+            JaloArray arr = JaloArray.empty();
             for (String p : parts) {
-                arr = arr.append(new JsonString(p));
+                arr = arr.append(new JaloString(p));
             }
             return arr;
         });
         registry.register("str-join", (args, env) -> {
             requireArity("str-join", args, 2);
-            JsonArray arr = requireArray("str-join", args.get(0));
+            JaloArray arr = requireArray("str-join", args.get(0));
             String sep = requireString("str-join", args, 2, 1);
             List<String> values = new ArrayList<>();
             for (int i = 0; i < arr.size(); i++) {
                 values.add(coerceToString(arr.get(i)));
             }
-            return new JsonString(values.stream().collect(Collectors.joining(sep)));
+            return new JaloString(values.stream().collect(Collectors.joining(sep)));
         });
-        registry.register("str-replace", (args, env) -> new JsonString(requireString("str-replace", args, 3, 0)
+        registry.register("str-replace", (args, env) -> new JaloString(requireString("str-replace", args, 3, 0)
             .replace(requireString("str-replace", args, 3, 1), requireString("str-replace", args, 3, 2))));
         registry.register("str-replace-first", (args, env) -> {
             String src = requireString("str-replace-first", args, 3, 0);
@@ -76,16 +76,16 @@ public final class StringBuiltins {
             String rep = requireString("str-replace-first", args, 3, 2);
             int idx = src.indexOf(old);
             if (idx < 0) {
-                return new JsonString(src);
+                return new JaloString(src);
             }
-            return new JsonString(src.substring(0, idx) + rep + src.substring(idx + old.length()));
+            return new JaloString(src.substring(0, idx) + rep + src.substring(idx + old.length()));
         });
         registry.register("str-index-of", (args, env) -> new JaloInt(requireString("str-index-of", args, 2, 0)
             .indexOf(requireString("str-index-of", args, 2, 1))));
         registry.register("str->number", (args, env) -> {
             String s = requireString("str->number", args, 1, 0);
             try {
-                return new JsonNumber(Double.parseDouble(s));
+                return new JaloNumber(Double.parseDouble(s));
             } catch (NumberFormatException ex) {
                 throw error("invalid number");
             }
@@ -93,27 +93,27 @@ public final class StringBuiltins {
         registry.register("number->str", (args, env) -> {
             requireArity("number->str", args, 1);
             JaloValue v = args.get(0);
-            if (v instanceof JsonNumber n) return new JsonString(Double.toString(n.value()));
-            if (v instanceof JaloInt n) return new JsonString(Integer.toString(n.value()));
-            if (v instanceof JaloLong n) return new JsonString(Long.toString(n.value()));
+            if (v instanceof JaloNumber n) return new JaloString(Double.toString(n.value()));
+            if (v instanceof JaloInt n) return new JaloString(Integer.toString(n.value()));
+            if (v instanceof JaloLong n) return new JaloString(Long.toString(n.value()));
             throw error("number->str expects number");
         });
-        registry.register("str->keyword", (args, env) -> new JsonString(":" + requireString("str->keyword", args, 1, 0)));
+        registry.register("str->keyword", (args, env) -> new JaloString(":" + requireString("str->keyword", args, 1, 0)));
         registry.register("keyword->str", (args, env) -> {
             String keyword = requireString("keyword->str", args, 1, 0);
-            return new JsonString(keyword.startsWith(":") ? keyword.substring(1) : keyword);
+            return new JaloString(keyword.startsWith(":") ? keyword.substring(1) : keyword);
         });
         registry.register("char-at", (args, env) -> {
             String s = requireString("char-at", args, 2, 0);
             int idx = requireIndex("char-at", args.get(1));
             if (idx < 0 || idx >= s.length()) throw error("index out of range");
-            return new JsonString(String.valueOf(s.charAt(idx)));
+            return new JaloString(String.valueOf(s.charAt(idx)));
         });
         registry.register("str-empty?", (args, env) -> bool(requireString("str-empty?", args, 1, 0).isEmpty()));
         registry.register("str-blank?", (args, env) -> bool(requireString("str-blank?", args, 1, 0).trim().isEmpty()));
         registry.register("str", (args, env) -> {
             requireArity("str", args, 1);
-            return new JsonString(coerceToString(args.get(0)));
+            return new JaloString(coerceToString(args.get(0)));
         });
     }
 
@@ -125,14 +125,14 @@ public final class StringBuiltins {
 
     private static String requireString(String name, List<JaloValue> args, int arity, int index) {
         requireArity(name, args, arity);
-        if (!(args.get(index) instanceof JsonString s)) {
+        if (!(args.get(index) instanceof JaloString s)) {
             throw error(name + " expects string");
         }
         return s.value();
     }
 
-    private static JsonArray requireArray(String name, JaloValue value) {
-        if (!(value instanceof JsonArray arr)) {
+    private static JaloArray requireArray(String name, JaloValue value) {
+        if (!(value instanceof JaloArray arr)) {
             throw error(name + " expects array");
         }
         return arr;
@@ -141,20 +141,20 @@ public final class StringBuiltins {
     private static int requireIndex(String name, JaloValue value) {
         if (value instanceof JaloInt n) return n.value();
         if (value instanceof JaloLong n) return (int) n.value();
-        if (value instanceof JsonNumber n) return (int) n.value();
+        if (value instanceof JaloNumber n) return (int) n.value();
         throw error(name + " expects numeric index");
     }
 
     private static String coerceToString(JaloValue value) {
-        if (value instanceof JsonString s) return s.value();
+        if (value instanceof JaloString s) return s.value();
         return value.toString();
     }
 
-    private static JsonBool bool(boolean value) {
-        return value ? JsonBool.TRUE : JsonBool.FALSE;
+    private static JaloBool bool(boolean value) {
+        return value ? JaloBool.TRUE : JaloBool.FALSE;
     }
 
     private static JaloEffectSignal error(String message) {
-        return new JaloEffectSignal(new JsonString("error"), new JsonString(message));
+        return new JaloEffectSignal(new JaloString("error"), new JaloString(message));
     }
 }
