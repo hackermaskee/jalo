@@ -66,7 +66,7 @@ class ArrayBuiltinsTest {
     @Test
     void bB9_conj() {
         assertThat(evaluator.eval(parse("(conj (backquote (array 1i 2i)) 3i)")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1), new JaloNumber(2), new JaloNumber(3)));
+            .isEqualTo(JaloArray.of(new JaloNumber(1), new JaloNumber(2), new JaloInt(3)));
     }
 
     @Test
@@ -84,7 +84,7 @@ class ArrayBuiltinsTest {
     @Test
     void bB12_range() {
         assertThat(evaluator.eval(parse("(range 3i)")))
-            .isEqualTo(JaloArray.of(new JaloNumber(0), new JaloNumber(1), new JaloNumber(2)));
+            .isEqualTo(JaloArray.of(new JaloInt(0), new JaloInt(1), new JaloInt(2)));
     }
 
     @Test

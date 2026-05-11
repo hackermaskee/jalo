@@ -23,7 +23,7 @@ class MapBuiltinsTest {
     @Test
     void bB16_assoc() {
         assertThat(evaluator.eval(parse("(assoc (backquote (map)) (quote \"a\") 1i)")))
-            .isEqualTo(JaloMap.empty().put("a", new JaloNumber(1)));
+            .isEqualTo(JaloMap.empty().put("a", new org.bsdclub.furuta.jalo.value.JaloInt(1)));
     }
 
     @Test

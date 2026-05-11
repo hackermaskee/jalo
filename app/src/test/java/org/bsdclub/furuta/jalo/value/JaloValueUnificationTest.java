@@ -49,4 +49,14 @@ class JaloValueUnificationTest {
         assertTrue(v7 instanceof JaloInt);
         assertTrue(v8 instanceof JaloLong);
     }
+
+    @Test void rangeProducesJaloIntElements() {
+        JaloArray arr = JaloArray.empty()
+            .append(new JaloInt(0))
+            .append(new JaloInt(1))
+            .append(new JaloInt(2));
+        assertInstanceOf(JaloInt.class, arr.get(0));
+        assertInstanceOf(JaloInt.class, arr.get(1));
+        assertInstanceOf(JaloInt.class, arr.get(2));
+    }
 }
