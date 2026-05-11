@@ -2,7 +2,7 @@ package org.bsdclub.furuta.jalo.evaluator.builtins;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import org.bsdclub.furuta.jalo.json.JsonNumber;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.evaluator.Environment;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +10,7 @@ class BuiltinRegistryTest {
     @Test
     void registerAndLookupReturnsFunction() {
         BuiltinRegistry registry = new BuiltinRegistry();
-        BuiltinFunction fn = (args, env) -> new JsonNumber(42.0);
+        BuiltinFunction fn = (args, env) -> new JaloNumber(42.0);
 
         registry.register("x", fn);
 
@@ -26,8 +26,8 @@ class BuiltinRegistryTest {
     @Test
     void registerOverridesExistingName() {
         BuiltinRegistry registry = new BuiltinRegistry();
-        BuiltinFunction first = (args, env) -> new JsonNumber(1.0);
-        BuiltinFunction second = (args, env) -> new JsonNumber(2.0);
+        BuiltinFunction first = (args, env) -> new JaloNumber(1.0);
+        BuiltinFunction second = (args, env) -> new JaloNumber(2.0);
 
         registry.register("x", first);
         registry.register("x", second);
@@ -41,14 +41,14 @@ class BuiltinRegistryTest {
         registry.register("id", (args, env) -> args.get(0));
 
         BuiltinFunction fn = registry.lookup("id").orElseThrow();
-        assertThat(fn.apply(java.util.List.of(new JsonNumber(3.0)), Environment.root()))
-            .isEqualTo(new JsonNumber(3.0));
+        assertThat(fn.apply(java.util.List.of(new JaloNumber(3.0)), Environment.root()))
+            .isEqualTo(new JaloNumber(3.0));
     }
 
     @Test
     void lookupIsCaseSensitive() {
         BuiltinRegistry registry = new BuiltinRegistry();
-        registry.register("str-count", (args, env) -> new JsonNumber(1.0));
+        registry.register("str-count", (args, env) -> new JaloNumber(1.0));
 
         assertThat(registry.lookup("STR-COUNT")).isEmpty();
     }
