@@ -4,6 +4,7 @@ import java.util.List;
 import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloFunction;
 import org.bsdclub.furuta.jalo.value.JaloNull;
 import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloMap;
@@ -53,8 +54,19 @@ public final class SeqBuiltins {
             }
             return cur;
         });
-        registry.register("assoc-in", (args, env) -> args.get(0));
-        registry.register("update-in", (args, env) -> args.get(0));
+        registry.register("assoc-in", (args, env) -> {
+            requireArity("assoc-in", args, 3);
+            return assocIn(args.get(0), requireArray("assoc-in", args.get(1)), 0, args.get(2));
+        });
+        registry.register("update-in", (args, env) -> {
+            if (args.size() < 3) throw error("Wrong arity for update-in");
+            JaloValue cur = getIn(args.get(0), requireArray("update-in", args.get(1)));
+            if (!(args.get(2) instanceof JaloFunction fn)) {
+                throw error("update-in: expected function");
+            }
+            JaloValue next = fn.apply(List.of(cur), new org.bsdclub.furuta.jalo.evaluator.Evaluator());
+            return assocIn(args.get(0), requireArray("update-in", args.get(1)), 0, next);
+        });
         registry.register("dissoc-in", (args, env) -> args.get(0));
     }
 
@@ -68,6 +80,45 @@ public final class SeqBuiltins {
         if (value instanceof JaloLong n) return (int) n.value();
         if (value instanceof JaloNumber n) return (int) n.value();
         throw error(name + ": expected int");
+    }
+
+    private static JaloValue getIn(JaloValue root, JaloArray path) {
+        JaloValue cur = root;
+        for (int i = 0; i < path.size(); i++) {
+            JaloValue p = path.get(i);
+            if (cur instanceof JaloMap obj && p instanceof JaloString key) {
+                JaloValue next = obj.get(key.value());
+                if (next == null) return JaloNull.INSTANCE;
+                cur = next;
+            } else if (cur instanceof JaloArray arr) {
+                int idx = requireInt("get-in", p);
+                if (idx < 0 || idx >= arr.size()) return JaloNull.INSTANCE;
+                cur = arr.get(idx);
+            } else {
+                return JaloNull.INSTANCE;
+            }
+        }
+        return cur;
+    }
+
+    private static JaloValue assocIn(JaloValue coll, JaloArray path, int index, JaloValue value) {
+        if (index >= path.size()) return value;
+        JaloValue step = path.get(index);
+        if (step instanceof JaloString key) {
+            if (!(coll instanceof JaloMap map)) throw error("assoc-in: expected map");
+            JaloValue child = map.get(key.value());
+            if (child == null) child = JaloNull.INSTANCE;
+            JaloValue next = assocIn(child, path, index + 1, value);
+            return map.put(key.value(), next);
+        }
+        int idx = requireInt("assoc-in", step);
+        if (!(coll instanceof JaloArray arr)) throw error("assoc-in: expected array");
+        JaloArray out = JaloArray.empty();
+        for (int i = 0; i < arr.size(); i++) {
+            if (i == idx) out = out.append(assocIn(arr.get(i), path, index + 1, value));
+            else out = out.append(arr.get(i));
+        }
+        return out;
     }
 
     private static void requireArity(String name, List<JaloValue> args, int arity) {
