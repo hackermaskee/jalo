@@ -3,6 +3,7 @@ package org.bsdclub.furuta.jalo.evaluator.builtins;
 import java.util.Map;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloBuiltinFunction;
 import org.bsdclub.furuta.jalo.value.JaloFunction;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
@@ -55,6 +56,7 @@ public final class TypeBuiltins {
             case JaloInt ignored -> false;
             case JaloLong ignored -> false;
             case JaloFunction ignored -> false;
+            case JaloBuiltinFunction ignored -> false;
         };
     }
 }
