@@ -85,7 +85,7 @@ class StringBuiltinsTest {
 
     @Test
     void bA13_join() {
-        assertThat(evaluator.eval(parse("(str-join (backquote (array \"a\" \"b\" \"c\")) (quote \",\"))")))
+        assertThat(evaluator.eval(parse("(str-join (quasiquote (array \"a\" \"b\" \"c\")) (quote \",\"))")))
             .isEqualTo(new JaloString("a,b,c"));
     }
 
@@ -98,6 +98,22 @@ class StringBuiltinsTest {
     @Test
     void bA15_indexOf() {
         assertThat(evaluator.eval(parse("(str-index-of (quote \"hello\") (quote \"ll\"))"))).isEqualTo(new JaloInt(2));
+    }
+
+    @Test
+    void bA15b_charAtStart() {
+        assertThat(evaluator.eval(parse("(char-at (quote \"hello\") 0i)"))).isEqualTo(new JaloString("h"));
+    }
+
+    @Test
+    void bA15c_charAtEnd() {
+        assertThat(evaluator.eval(parse("(char-at (quote \"hello\") 4i)"))).isEqualTo(new JaloString("o"));
+    }
+
+    @Test
+    void bA15d_charAtOutOfRangeError() {
+        assertThat(evaluator.eval(parse("(handle (char-at (quote \"hello\") 5i) [(quote error) e e])")))
+            .isEqualTo(new JaloString("index out of range"));
     }
 
     @Test

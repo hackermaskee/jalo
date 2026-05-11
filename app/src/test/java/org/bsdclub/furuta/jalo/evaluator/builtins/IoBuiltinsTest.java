@@ -20,13 +20,13 @@ class IoBuiltinsTest {
 
     @Test
     void toJson() {
-        assertThat(evaluator.eval(parse("(to-json (backquote (map (\"a\" 1.0) (\"b\" (array 2.0 3.0)))))")))
+        assertThat(evaluator.eval(parse("(to-json (quasiquote (map (\"a\" 1.0) (\"b\" (array 2.0 3.0)))))")))
             .isEqualTo(new JaloString("{\"a\":1.0,\"b\":[2.0,3.0]}"));
     }
 
     @Test
     void printlnAndToJsonErrorForInt() {
-        assertThat(evaluator.eval(parse("(println (backquote \"hello\"))"))).isEqualTo(JaloNull.INSTANCE);
+        assertThat(evaluator.eval(parse("(println (quasiquote \"hello\"))"))).isEqualTo(JaloNull.INSTANCE);
         assertThatThrownBy(() -> evaluator.eval(parse("(to-json 42i)")))
             .isInstanceOf(JaloEffectSignal.class);
     }

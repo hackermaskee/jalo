@@ -43,6 +43,10 @@ public final class PatternMatcher {
 
     private Optional<PersistentHashMap<String, JaloValue>> matchNode(
             JaloValue pattern, JaloValue value, Environment env) {
+        if (isPatternForm(pattern)) {
+            JaloValue inner = ((JaloArray) pattern).get(1);
+            return matchBackquote(inner, value, env);
+        }
         if (isBackquote(pattern)) {
             JaloValue inner = ((JaloArray) pattern).get(1);
             return matchBackquote(inner, value, env);
@@ -57,7 +61,7 @@ public final class PatternMatcher {
 
     private Optional<PersistentHashMap<String, JaloValue>> matchBackquote(
             JaloValue inner, JaloValue value, Environment env) {
-        if (isForm(inner, "dollar")) {
+        if (isForm(inner, "var")) {
             JaloValue varNode = ((JaloArray) inner).get(1);
             if (!(varNode instanceof JaloString var)) {
                 return Optional.empty();
@@ -76,7 +80,7 @@ public final class PatternMatcher {
             return matchMapPattern((JaloArray) inner, value, env);
         }
 
-        JaloValue normalizedPattern = evaluator.eval(JaloArray.of(new JaloString("backquote"), inner), env);
+        JaloValue normalizedPattern = evaluator.eval(JaloArray.of(new JaloString("quasiquote"), inner), env);
         if (normalizedPattern.equals(toJsonValue(value))) {
             return Optional.of(PersistentHashMap.empty());
         }
@@ -91,7 +95,7 @@ public final class PatternMatcher {
 
         int atIndex = -1;
         for (int i = 1; i < pattern.size(); i++) {
-            if (isForm(pattern.get(i), "at")) {
+            if (isForm(pattern.get(i), "rest-seq")) {
                 atIndex = i;
                 break;
             }
@@ -163,7 +167,7 @@ public final class PatternMatcher {
         JaloString restVar = null;
         for (int i = 1; i < pattern.size(); i++) {
             JaloValue node = pattern.get(i);
-            if (isForm(node, "percent")) {
+            if (isForm(node, "rest-map")) {
                 JaloValue varNode = ((JaloArray) node).get(1);
                 if (!(varNode instanceof JaloString var)) {
                     return Optional.empty();
@@ -221,7 +225,11 @@ public final class PatternMatcher {
     }
 
     private boolean isBackquote(JaloValue node) {
-        return isForm(node, "backquote") && ((JaloArray) node).size() == 2;
+        return isForm(node, "quasiquote") && ((JaloArray) node).size() == 2;
+    }
+
+    private boolean isPatternForm(JaloValue node) {
+        return isForm(node, "pattern") && ((JaloArray) node).size() == 2;
     }
 
     private boolean isForm(JaloValue node, String op) {

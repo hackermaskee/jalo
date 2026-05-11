@@ -83,13 +83,13 @@ public final class Parser {
     }
 
     /**
-     * Parses standard expressions, including backquote sugar forms (SPEC §5.5).
+     * Parses standard expressions, including quasiquote sugar forms (SPEC §5.5).
      *
-     * @param inBackquote true when parsing inside a backquote context
+     * @param inQuasiquote true when parsing inside a quasiquote context
      * @return parsed expression
      * @throws ParserException if parsing fails due to invalid syntax
      */
-    private JaloValue parseExpr(boolean inBackquote) {
+    private JaloValue parseExpr(boolean inQuasiquote) {
         Token token = peek();
         return switch (token) {
             case Token.Null t -> { advance(); yield JaloNull.INSTANCE; }
@@ -106,36 +106,38 @@ public final class Parser {
                 if (next instanceof Token.Eof || next instanceof Token.RParen || next instanceof Token.RBracket) {
                     throw new ParserException("unexpected end of expression after quote shorthand", next.line(), next.col());
                 }
-                yield JaloArray.of(new JaloString("quote"), parseExpr(inBackquote));
+                yield JaloArray.of(new JaloString("quote"), parseExpr(inQuasiquote));
             }
             case Token.Backquote t -> {
                 advance();
-                yield JaloArray.of(new JaloString("backquote"), parseExpr(true));
+                yield JaloArray.of(new JaloString("quasiquote"), parseExpr(true));
             }
             case Token.Dollar t -> {
-                if (!inBackquote) {
-                    throw new ParserException("$ outside backquote context (SPEC §5.5)", t.line(), t.col());
+                if (!inQuasiquote) {
+                    throw new ParserException("$ outside quasiquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JaloArray.of(new JaloString("dollar"), parseExpr(false));
+                yield JaloArray.of(new JaloString("var"), parseExpr(false));
             }
             case Token.At t -> {
-                if (!inBackquote) {
-                    throw new ParserException("@ outside backquote context (SPEC §5.5)", t.line(), t.col());
+                if (!inQuasiquote) {
+                    throw new ParserException("@ outside quasiquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JaloArray.of(new JaloString("at"), parseExpr(false));
+                yield JaloArray.of(new JaloString("rest-seq"), parseExpr(false));
             }
             case Token.Percent t -> {
-                if (!inBackquote) {
-                    throw new ParserException("% outside backquote context (SPEC §5.5)", t.line(), t.col());
+                if (!inQuasiquote) {
+                    throw new ParserException("% outside quasiquote context (SPEC §5.5)", t.line(), t.col());
                 }
                 advance();
-                yield JaloArray.of(new JaloString("percent"), parseExpr(false));
+                yield JaloArray.of(new JaloString("rest-map"), parseExpr(false));
             }
-            case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]", inBackquote);
+            case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]", inQuasiquote);
+            case Token.HashBracketOpen t -> parsePatternArray();
+            case Token.HashCurlyOpen t -> parsePatternMap();
             case Token.LParen t -> parseStandardArray(Token.LParen.class, Token.RParen.class, ")");
-            case Token.LBrace t -> parseStandardObject(inBackquote);
+            case Token.LBrace t -> parseStandardObject(inQuasiquote);
             case Token.Eof t -> throw new ParserException("Unexpected EOF", t.line(), t.col());
             default -> throw new ParserException("Unexpected token", token.line(), token.col());
         };
@@ -146,9 +148,9 @@ public final class Parser {
     }
 
     private JaloArray parseStandardArray(
-            Class<? extends Token> leftType, Class<? extends Token> rightType, String right, boolean inBackquote) {
+            Class<? extends Token> leftType, Class<? extends Token> rightType, String right, boolean inQuasiquote) {
         expect(leftType, "Expected array opener");
-        JaloArray arr = inBackquote && leftType.equals(Token.LBracket.class)
+        JaloArray arr = inQuasiquote && (leftType.equals(Token.LBracket.class) || leftType.equals(Token.HashBracketOpen.class))
                 ? JaloArray.of(new JaloString("array"))
                 : JaloArray.empty();
         while (true) {
@@ -160,14 +162,81 @@ public final class Parser {
             if (token instanceof Token.Eof eof) {
                 throw new ParserException("Unexpected EOF: expected '" + right + "'", eof.line(), eof.col());
             }
-            arr = arr.append(parseExpr(inBackquote));
+            JaloValue nextExpr = parseExpr(inQuasiquote);
+            if (isMatchForm(arr) && isMatchPatternPosition(arr.size()) && isQuasiquote(nextExpr)) {
+                throw new ParserException(
+                    "Use #[...] pattern syntax instead of quasiquote in match pattern position",
+                    token.line(),
+                    token.col());
+            }
+            arr = arr.append(nextExpr);
             if (peek() instanceof Token.Comma) {
                 advance();
             }
         }
     }
 
-    private JaloValue parseStandardObject(boolean inBackquote) {
+    private JaloValue parsePatternArray() {
+        JaloArray patternArray = parseStandardArray(Token.HashBracketOpen.class, Token.RBracket.class, "]", true);
+        return JaloArray.of(new JaloString("pattern"), patternArray);
+    }
+
+    private JaloValue parsePatternMap() {
+        expect(Token.HashCurlyOpen.class, "Expected '#{'");
+        JaloArray mapForm = JaloArray.of(new JaloString("map"));
+        while (true) {
+            Token token = peek();
+            if (token instanceof Token.RBrace) {
+                advance();
+                return JaloArray.of(new JaloString("pattern"), mapForm);
+            }
+            if (token instanceof Token.Eof eof) {
+                throw new ParserException("Unexpected EOF: expected '}'", eof.line(), eof.col());
+            }
+            String key = switch (token) {
+                case Token.Identifier id -> {
+                    advance();
+                    yield id.name();
+                }
+                case Token.Str str -> {
+                    advance();
+                    yield str.value();
+                }
+                default -> throw new ParserException("Expected object key", token.line(), token.col());
+            };
+            Token colon = peek();
+            if (!(colon instanceof Token.Colon)) {
+                throw new ParserException("Expected ':' after key", colon.line(), colon.col());
+            }
+            advance();
+            mapForm = mapForm.append(JaloArray.of(new JaloString(key), parseExpr(true)));
+            if (peek() instanceof Token.Comma) {
+                advance();
+            }
+        }
+    }
+
+    private boolean isMatchPatternPosition(int currentSize) {
+        if (currentSize < 2) {
+            return false;
+        }
+        return ((currentSize - 2) % 2) == 0;
+    }
+
+    private boolean isMatchForm(JaloArray arr) {
+        return arr.size() > 0
+            && arr.get(0) instanceof JaloString op
+            && "match".equals(op.value());
+    }
+
+    private boolean isQuasiquote(JaloValue expr) {
+        return expr instanceof JaloArray q
+            && q.size() == 2
+            && q.get(0) instanceof JaloString s
+            && "quasiquote".equals(s.value());
+    }
+
+    private JaloValue parseStandardObject(boolean inQuasiquote) {
         expect(Token.LBrace.class, "Expected '{'");
         JaloMap obj = JaloMap.empty();
         JaloArray mapForm = JaloArray.of(new JaloString("map"));
@@ -175,7 +244,7 @@ public final class Parser {
             Token token = peek();
             if (token instanceof Token.RBrace) {
                 advance();
-                return inBackquote ? mapForm : obj;
+                return inQuasiquote ? mapForm : obj;
             }
             if (token instanceof Token.Eof eof) {
                 throw new ParserException("Unexpected EOF: expected '}'", eof.line(), eof.col());
@@ -198,8 +267,8 @@ public final class Parser {
                 throw new ParserException("Expected ':' after key", colon.line(), colon.col());
             }
             advance();
-            JaloValue value = parseExpr(inBackquote);
-            if (inBackquote) {
+            JaloValue value = parseExpr(inQuasiquote);
+            if (inQuasiquote) {
                 mapForm = mapForm.append(JaloArray.of(new JaloString(key), value));
             } else {
                 obj = obj.put(key, value);

@@ -16,66 +16,66 @@ class PatternTest {
     }
 
     @Test void p1_dollarVariableOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (array (dollar x)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (array (var x)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p2_dollarNonVariableFails() {
-        assertThatThrownBy(() -> check(new SyntaxChecker(), "(backquote (array (dollar (+ 1 2))))"))
+        assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (array (var (+ 1 2))))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: dollar followed by non-variable");
+                .hasMessageContaining("Pattern: var followed by non-variable");
     }
 
     @Test void p3_atSingleInArrayOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (array (at rest)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (array (rest-seq rest)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p4_multipleAtInArrayFails() {
-        assertThatThrownBy(() -> check(new SyntaxChecker(), "(backquote (array (at r1) (at r2)))"))
+        assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (array (rest-seq r1) (rest-seq r2)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: multiple 'at' in array");
+                .hasMessageContaining("Pattern: multiple 'rest-seq' in array");
     }
 
     @Test void p5_mapStaticKeyOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (map (\"k\" v)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (map (\"k\" v)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p6_mapDollarKeyFails() {
-        assertThatThrownBy(() -> check(new SyntaxChecker(), "(backquote (map ((dollar k) v)))"))
+        assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (map ((var k) v)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: dollar key not allowed in map");
+                .hasMessageContaining("Pattern: var key not allowed in map");
     }
 
     @Test void p7_percentSingleInMapOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (map (percent rest)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (map (rest-map rest)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p8_multiplePercentInMapFails() {
-        assertThatThrownBy(() -> check(new SyntaxChecker(), "(backquote (map (percent r1) (percent r2)))"))
+        assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (map (rest-map r1) (rest-map r2)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: multiple 'percent' in map");
+                .hasMessageContaining("Pattern: multiple 'rest-map' in map");
     }
 
     @Test void p9_matchWithBackquotePatternOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(let [val 1 result 2] (match val (backquote (array (dollar x))) result))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(let [val 1 result 2] (match val #[$x] result))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p10_atWildcardOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (array (at _)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (array (rest-seq _)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p11_dollarWildcardOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (array (dollar _)))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (array (var _)))"))
                 .doesNotThrowAnyException();
     }
 
     @Test void p12_nestedPatternOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(backquote (array (array (dollar x))))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(quasiquote (array (array (var x))))"))
                 .doesNotThrowAnyException();
     }
 }

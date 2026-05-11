@@ -48,15 +48,15 @@ class StandardParserTest {
     @Test
     void c15_backquoteLiteral() {
         assertThat(parse("`42"))
-            .isEqualTo(JaloArray.of(new JaloString("backquote"), new JaloInt(42)));
+            .isEqualTo(JaloArray.of(new JaloString("quasiquote"), new JaloInt(42)));
     }
 
     @Test
     void c16_backquoteArrayLiteral() {
-        assertThat(parse("`[1 2 3]"))
+        assertThat(parse("#[1 2 3]"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("array"),
                         new JaloInt(1),
@@ -66,34 +66,34 @@ class StandardParserTest {
 
     @Test
     void c17_backquoteArrayWithDollarAndAt() {
-        assertThat(parse("`[$x @arr]"))
+        assertThat(parse("#[$x @arr]"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("array"),
-                        JaloArray.of(new JaloString("dollar"), new JaloString("x")),
-                        JaloArray.of(new JaloString("at"), new JaloString("arr")))));
+                        JaloArray.of(new JaloString("var"), new JaloString("x")),
+                        JaloArray.of(new JaloString("rest-seq"), new JaloString("arr")))));
     }
 
     @Test
     void c18_backquoteMapWithDollarValue() {
-        assertThat(parse("`{name: $n}"))
+        assertThat(parse("#{name: $n}"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("map"),
                         JaloArray.of(
                             new JaloString("name"),
-                            JaloArray.of(new JaloString("dollar"), new JaloString("n"))))));
+                            JaloArray.of(new JaloString("var"), new JaloString("n"))))));
     }
 
     @Test
     void c19_dollarOutsideBackquoteFails() {
         assertThatThrownBy(() -> parse("$x"))
             .isInstanceOf(ParserException.class)
-            .hasMessageContaining("$ outside backquote context");
+            .hasMessageContaining("$ outside quasiquote context");
     }
 
     @Test
