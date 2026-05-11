@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-11
+
+### BREAKING CHANGES
+
+- **`JsonValue` 削除**: `json.*` パッケージ (`JsonNull`, `JsonBool`, `JsonNumber`, `JsonString`, `JsonArray`, `JsonObject`, `JsonValue`) が全て削除された。全ての値型は `JaloValue` の直接実装となった。
+- **配列・マップ要素型変更**: `JaloArray.elements()` の型が `PersistentVector<JaloValue>` に、`JaloMap.entries()` の型が `PersistentHashMap<String, JaloValue>` に変更され、`JaloInt`/`JaloLong` を型損失なく格納可能になった。
+- **`range`/`conj`/`cons`/`assoc` 型挙動変更**: これらの関数で整数値を扱う際、従来は `JaloNumber (double)` に変換されていたが、`JaloInt` のまま維持されるようになった。
+
+### Added
+
+- `JaloValue` を sealed interface として確立し、9 つの型 (`JaloNull`, `JaloBool`, `JaloNumber`, `JaloString`, `JaloArray`, `JaloMap`, `JaloInt`, `JaloLong`, `JaloFunction`) を直接 permits。コンパイラによる網羅性検証が可能になった。
+- `(pure-json? x)` 組込み関数: 値が完全に JSON 値モデルに適合するかを動的かつ再帰的に判定する。
+
+### Changed
+
+- SPEC §1/§2 改訂: sealed JaloValue 型階層と全 9 型の一覧を明示。
+- SPEC §4.5 更新: `pure-json?` エントリと使用例を追加 (PR-B)。
+
 ## [0.1.0] - 2026-05-11
 ### Added
 - Evaluator: quote/if/def/let/letrec/fn special forms (cmd_403)
