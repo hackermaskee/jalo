@@ -7,6 +7,9 @@ import java.util.Map;
 import java.util.Optional;
 import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinFunction;
 import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinRegistry;
+import org.bsdclub.furuta.jalo.evaluator.builtins.ArrayBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.MapBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.SeqBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
 import org.bsdclub.furuta.jalo.json.JsonArray;
 import org.bsdclub.furuta.jalo.json.JsonBool;
@@ -44,6 +47,9 @@ public final class Evaluator {
         this.globalEnv = Environment.root();
         this.registry = new BuiltinRegistry();
         StringBuiltins.registerAll(registry);
+        ArrayBuiltins.registerAll(registry);
+        MapBuiltins.registerAll(registry);
+        SeqBuiltins.registerAll(registry);
     }
 
     /**
