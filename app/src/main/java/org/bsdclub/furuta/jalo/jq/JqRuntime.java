@@ -27,7 +27,7 @@ public final class JqRuntime {
      * @return evaluated jalo runtime value
      */
     public JaloValue eval(String filter, JaloValue input) {
-        JaloValue ast = parser.transpile(lexer.tokenize(filter));
+        JaloValue ast = parser.transpile(filter);
         Environment env = Environment.root().bind("x", input);
         return evaluator.eval(ast, env);
     }

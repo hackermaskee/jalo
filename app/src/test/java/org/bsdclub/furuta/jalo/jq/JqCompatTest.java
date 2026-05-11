@@ -37,4 +37,20 @@ class JqCompatTest {
         assertThat(runtime.eval("@csv", JaloArray.of(new JaloString("a"), new JaloString("b"))))
             .isEqualTo(new JaloString("a,b"));
     }
+
+    @Test
+    void ifThenElseEndFilter() {
+        assertThat(runtime.eval("if . > 0 then \"positive\" else \"non-positive\" end", new JaloInt(1)))
+            .isEqualTo(new JaloString("positive"));
+        assertThat(runtime.eval("if . > 0 then \"positive\" else \"non-positive\" end", new JaloInt(0)))
+            .isEqualTo(new JaloString("non-positive"));
+    }
+
+    @Test
+    void asDestructuringFilter() {
+        assertThat(runtime.eval(". as [$a, $b] | $a", JaloArray.of(new JaloInt(7), new JaloInt(9))))
+            .isEqualTo(new JaloInt(7));
+        assertThat(runtime.eval(". as {foo: $f} | $f", JaloMap.empty().put("foo", new JaloInt(21))))
+            .isEqualTo(new JaloInt(21));
+    }
 }
