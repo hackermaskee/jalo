@@ -59,4 +59,22 @@ class JqBuiltinsTest {
                 JaloMap.empty().put("c", new JaloInt(2)),
                 new JaloInt(2)));
     }
+
+    @Test
+    void acceptsAddSortByUniqueAndEntriesFamily() {
+        assertThat(evaluator.eval(parse("(add (quasiquote (array 1i 2i 3i)))")))
+            .isEqualTo(new JaloInt(6));
+        assertThat(evaluator.eval(parse("(sort-by identity (quasiquote (array 3i 1i 2i)))")))
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
+        assertThat(evaluator.eval(parse("(unique (quasiquote (array 1i 2i 1i 3i)))")))
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
+        assertThat(evaluator.eval(parse("(to-entries {a: 1 b: 2})")))
+            .isEqualTo(JaloArray.of(
+                JaloMap.empty().put("key", new JaloString("a")).put("value", new JaloInt(1)),
+                JaloMap.empty().put("key", new JaloString("b")).put("value", new JaloInt(2))));
+        assertThat(evaluator.eval(parse("(from-entries (quasiquote (array {key: \"a\" value: 1} {key: \"b\" value: 2})))")))
+            .isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2)));
+        assertThat(evaluator.eval(parse("(with-entries (fn [e] {key: (get e \"key\") value: (+ (get e \"value\") 1i)}) {a: 1 b: 2})")))
+            .isEqualTo(JaloMap.empty().put("a", new JaloInt(2)).put("b", new JaloInt(3)));
+    }
 }
