@@ -15,7 +15,8 @@ package org.bsdclub.furuta.jalo.value;
  * @see JaloInt
  * @see JaloLong
  * @see JaloFunction
+ * @see JaloBuiltinFunction
  */
 public sealed interface JaloValue
-    permits JaloNull, JaloBool, JaloNumber, JaloString, JaloArray, JaloMap, JaloInt, JaloLong, JaloFunction {
+    permits JaloNull, JaloBool, JaloNumber, JaloString, JaloArray, JaloMap, JaloInt, JaloLong, JaloFunction, JaloBuiltinFunction {
 }

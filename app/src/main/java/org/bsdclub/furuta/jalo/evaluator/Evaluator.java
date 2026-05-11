@@ -9,11 +9,15 @@ import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinFunction;
 import org.bsdclub.furuta.jalo.evaluator.builtins.BuiltinRegistry;
 import org.bsdclub.furuta.jalo.evaluator.builtins.ArrayBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.MapBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.HofBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.IoBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.NumericBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.SeqBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.TypeBuiltins;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloBuiltinFunction;
 import org.bsdclub.furuta.jalo.value.JaloFunction;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloLong;
@@ -52,6 +56,9 @@ public final class Evaluator {
         MapBuiltins.registerAll(registry);
         SeqBuiltins.registerAll(registry);
         TypeBuiltins.registerAll(registry);
+        NumericBuiltins.registerAll(registry);
+        HofBuiltins.registerAll(registry, this);
+        IoBuiltins.registerAll(registry);
     }
 
     /**
@@ -95,6 +102,8 @@ public final class Evaluator {
             case "quote" -> evalQuote(form);
             case "backquote" -> evalBackquote(form, env);
             case "if" -> evalIf(form, env);
+            case "and" -> evalAnd(form, env);
+            case "or" -> evalOr(form, env);
             case "declare" -> evalDeclare(form);
             case "def" -> evalDef(form, env);
             case "let" -> evalLet(form, env, false);
@@ -245,6 +254,25 @@ public final class Evaluator {
         return eval((JaloValue) (truthy ? form.get(2) : form.get(3)), env);
     }
 
+    private JaloValue evalAnd(JaloArray form, Environment env) {
+        JaloValue last = JaloBool.TRUE;
+        for (int i = 1; i < form.size(); i++) {
+            last = eval(form.get(i), env);
+            if (last == JaloNull.INSTANCE || JaloBool.FALSE.equals(last)) return last;
+        }
+        return last;
+    }
+
+    private JaloValue evalOr(JaloArray form, Environment env) {
+        if (form.size() == 1) return JaloNull.INSTANCE;
+        JaloValue last = JaloNull.INSTANCE;
+        for (int i = 1; i < form.size(); i++) {
+            last = eval(form.get(i), env);
+            if (!(last == JaloNull.INSTANCE || JaloBool.FALSE.equals(last))) return last;
+        }
+        return last;
+    }
+
     private JaloValue evalDef(JaloArray form, Environment env) {
         if (form.size() != 3 || !(form.get(1) instanceof JaloString name)) {
             throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for def"));
@@ -374,12 +402,12 @@ public final class Evaluator {
                     if (form.size() != 2) {
                         throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for numeric wrapper"));
                     }
-                    return new JaloInt((int) asNumeric(eval(form.get(1), env)).asLong());
+                    return new JaloInt((int) NumericPromotion.of(eval(form.get(1), env)).asLong());
                 case "long":
                     if (form.size() != 2) {
                         throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for numeric wrapper"));
                     }
-                    return new JaloLong(asNumeric(eval(form.get(1), env)).asLong());
+                    return new JaloLong(NumericPromotion.of(eval(form.get(1), env)).asLong());
                 case "+":
                     return add(eval(form.get(1), env), eval(form.get(2), env));
                 case "-":
@@ -411,7 +439,9 @@ public final class Evaluator {
                 case "null?":
                     return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloNull);
                 case "fn?":
-                    return bool(form.size() == 2 && eval(form.get(1), env) instanceof JaloFunction);
+                    if (form.size() != 2) return JaloBool.FALSE;
+                    JaloValue fnCandidate = eval(form.get(1), env);
+                    return bool(fnCandidate instanceof JaloFunction || fnCandidate instanceof JaloBuiltinFunction);
                 case "type":
                     return typeOf(form, env);
                 default:
@@ -428,14 +458,13 @@ public final class Evaluator {
         }
 
         JaloValue fnVal = eval(form.get(0), env);
-        if (!(fnVal instanceof JaloFunction fn)) {
-            throw new JaloEffectSignal(new JaloString("error"), new JaloString("First position is not function"));
-        }
         List<JaloValue> args = new ArrayList<>();
         for (int i = 1; i < form.size(); i++) {
             args.add(eval(form.get(i), env));
         }
-        return fn.apply(args, this);
+        if (fnVal instanceof JaloFunction fn) return fn.apply(args, this);
+        if (fnVal instanceof JaloBuiltinFunction bfn) return bfn.fn().apply(args, env);
+        throw new JaloEffectSignal(new JaloString("error"), new JaloString("First position is not function"));
     }
 
     private JaloValue typeOf(JaloArray form, Environment env) {
@@ -451,7 +480,7 @@ public final class Evaluator {
         if (v instanceof org.bsdclub.furuta.jalo.value.JaloMap) return new JaloString("object");
         if (v instanceof JaloInt) return new JaloString("int");
         if (v instanceof JaloLong) return new JaloString("long");
-        if (v instanceof JaloFunction) return new JaloString("function");
+        if (v instanceof JaloFunction || v instanceof JaloBuiltinFunction) return new JaloString("function");
         throw new JaloEffectSignal(new JaloString("error"), new JaloString("Unknown type"));
     }
 
@@ -460,46 +489,31 @@ public final class Evaluator {
     private JaloValue mul(JaloValue l, JaloValue r) { return numericBinary(l, r, '*'); }
 
     private JaloValue div(JaloValue l, JaloValue r) {
-        Numeric left = asNumeric(l);
-        Numeric right = asNumeric(r);
-        if (right.asDouble() == 0.0 && left.integral() && right.integral()) {
-            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Division by zero"));
-        }
-        return numericResult(left, right, left.asDouble() / right.asDouble());
+        return NumericPromotion.divide(l, r);
     }
 
     private JaloValue eq(JaloValue l, JaloValue r) {
-        Numeric left = asNumeric(l);
-        Numeric right = asNumeric(r);
+        NumericPromotion.Numeric left = NumericPromotion.of(l);
+        NumericPromotion.Numeric right = NumericPromotion.of(r);
         return left.asDouble() == right.asDouble() ? JaloBool.TRUE : JaloBool.FALSE;
     }
 
     private int cmp(JaloValue l, JaloValue r) {
-        Numeric left = asNumeric(l);
-        Numeric right = asNumeric(r);
+        NumericPromotion.Numeric left = NumericPromotion.of(l);
+        NumericPromotion.Numeric right = NumericPromotion.of(r);
         return Double.compare(left.asDouble(), right.asDouble());
     }
 
     private JaloValue numericBinary(JaloValue l, JaloValue r, char op) {
-        Numeric left = asNumeric(l);
-        Numeric right = asNumeric(r);
+        NumericPromotion.Numeric left = NumericPromotion.of(l);
+        NumericPromotion.Numeric right = NumericPromotion.of(r);
         double result = switch (op) {
             case '+' -> left.asDouble() + right.asDouble();
             case '-' -> left.asDouble() - right.asDouble();
             case '*' -> left.asDouble() * right.asDouble();
             default -> throw new IllegalArgumentException("unknown op");
         };
-        return numericResult(left, right, result);
-    }
-
-    private JaloValue numericResult(Numeric left, Numeric right, double result) {
-        if (!left.isDouble() && !right.isDouble()) {
-            if (left.isLong() || right.isLong()) {
-                return new JaloLong((long) result);
-            }
-            return new JaloInt((int) result);
-        }
-        return new JaloNumber(result);
+        return NumericPromotion.result(left, right, result);
     }
 
     private JaloBool bool(boolean b) {
@@ -510,27 +524,10 @@ public final class Evaluator {
         return value instanceof JaloNumber || value instanceof JaloInt || value instanceof JaloLong;
     }
 
-    private Numeric asNumeric(JaloValue value) {
-        if (value instanceof JaloNumber n) {
-            return new Numeric(n.value(), true, false);
-        }
-        if (value instanceof JaloInt n) {
-            return new Numeric(n.value(), false, false);
-        }
-        if (value instanceof JaloLong n) {
-            return new Numeric(n.value(), false, true);
-        }
-        throw new JaloEffectSignal(new JaloString("error"), new JaloString("Expected number"));
-    }
-
     private JaloValue toJsonValue(JaloValue value) {
         if (value instanceof JaloInt n) return new JaloNumber(n.value());
         if (value instanceof JaloLong n) return new JaloNumber(n.value());
         return value;
     }
 
-    private record Numeric(double asDouble, boolean isDouble, boolean isLong) {
-        boolean integral() { return !isDouble; }
-        long asLong() { return (long) asDouble; }
-    }
 }
