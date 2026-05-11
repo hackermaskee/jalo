@@ -46,6 +46,7 @@ jalo> :quit
 (quote foo)                        => "foo"
 'foo                               => "foo"
 '(1 2 3)                           => [1,2,3]
+(str-count "hello")                => 5   ; int
 (if #true 1 0)                     => 1
 (fn [x] (* x x))                   => <function value>
 (handle (raise (quote e) 42) [(quote e) v v]) => 42
@@ -88,6 +89,7 @@ jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をし�
 | 真偽値リテラル | `t` / `nil` (CL) | `#true` / `#false` | null や空リストとは別個 |
 | 数値型サフィックス | 暗黙的 | `42i` / `42L` / `3.14` | SPEC §2.1 の 3 つの数値型 |
 | quote 略記 | `(quote expr)` | `'<expr>` も利用可能 | 伝統的 Lisp 記法をサポート |
+| count/index の戻り値 | 実装依存の数値型 | `count`/`index-of`/`str-count`/`str-index-of` は `int` を返す | exact integer 的な用途に合わせるため |
 
 ### 補足
 

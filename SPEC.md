@@ -429,10 +429,10 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
 | 名前 | シグネチャ | 説明 |
 |------|-----------|------|
 | `str` | `(str x ...)` | 値の文字列化・連結 |
-| `str-count` | `(str-count s)` | 文字列長 (UTF-16 コード単位) |
+| `str-count` | `(str-count s)` | 文字列長 (UTF-16 コード単位) / 戻り値型: int |
 | `str-get` | `(str-get s i)` | i 番目の文字 (長さ 1 文字列) |
 | `subs` | `(subs s start)` / `(subs s start end)` | 部分文字列 |
-| `str-index-of` | `(str-index-of s sub)` | 最初の出現位置 (非存在は -1) |
+| `str-index-of` | `(str-index-of s sub)` | 最初の出現位置 (非存在は -1) / 戻り値型: int |
 | `str-replace` | `(str-replace s from to)` | 最初のマッチを置換 |
 | `str-replace-all` | `(str-replace-all s from to)` | 全マッチを置換 |
 | `str-split` | `(str-split s delim)` | デリミタで分割 → 文字列配列 |
@@ -448,6 +448,10 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
 | `str-starts-with?` | `(str-starts-with? s prefix)` | 前方一致 |
 | `str-ends-with?` | `(str-ends-with? s suffix)` | 後方一致 |
 | `str-contains?` | `(str-contains? s sub)` | 部分文字列を含むか |
+
+戻り値型の選定基準: 位置 (index) と個数 (count) は `int` を基本とする。
+Java `int` 範囲 (`2^31 - 1`) を超える可能性が現実的にある関数のみ `long` を採用する
+(例: `char-code` は Unicode コードポイントを返すため `long`)。
 
 #### 配列 (Clojure ベクタに対応)
 
@@ -505,7 +509,7 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
 
 | 名前 | シグネチャ | 説明 |
 |------|-----------|------|
-| `count` | `(count coll)` | 要素数 / エントリ数 |
+| `count` | `(count coll)` | 要素数 / エントリ数 / 戻り値型: int |
 | `empty?` | `(empty? coll)` | 空か |
 | `not-empty` | `(not-empty coll)` | 空なら null、そうでなければ `coll` |
 | `nth` | `(nth coll i)` / `(nth coll i default)` | i 番目の要素 |

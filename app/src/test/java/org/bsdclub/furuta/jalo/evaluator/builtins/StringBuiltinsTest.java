@@ -9,6 +9,7 @@ import org.bsdclub.furuta.jalo.json.JsonNumber;
 import org.bsdclub.furuta.jalo.json.JsonString;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
+import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.junit.jupiter.api.Test;
 
 class StringBuiltinsTest {
@@ -22,12 +23,12 @@ class StringBuiltinsTest {
 
     @Test
     void bA1_strCount() {
-        assertThat(evaluator.eval(parse("(str-count (quote \"hello\"))"))).isEqualTo(new JsonNumber(5.0));
+        assertThat(evaluator.eval(parse("(str-count (quote \"hello\"))"))).isEqualTo(new JaloInt(5));
     }
 
     @Test
     void bA2_strCountEmpty() {
-        assertThat(evaluator.eval(parse("(str-count (quote \"\"))"))).isEqualTo(new JsonNumber(0.0));
+        assertThat(evaluator.eval(parse("(str-count (quote \"\"))"))).isEqualTo(new JaloInt(0));
     }
 
     @Test
@@ -96,7 +97,23 @@ class StringBuiltinsTest {
 
     @Test
     void bA15_indexOf() {
-        assertThat(evaluator.eval(parse("(str-index-of (quote \"hello\") (quote \"ll\"))"))).isEqualTo(new JsonNumber(2.0));
+        assertThat(evaluator.eval(parse("(str-index-of (quote \"hello\") (quote \"ll\"))"))).isEqualTo(new JaloInt(2));
+    }
+
+    @Test
+    void bA21_strCountTypeIsInt() {
+        assertThat(evaluator.eval(parse("(type (str-count (quote \"hello\")))"))).isEqualTo(new JsonString("int"));
+    }
+
+    @Test
+    void bA22_strIndexOfTypeIsInt() {
+        assertThat(evaluator.eval(parse("(type (str-index-of (quote \"hello\") (quote \"ll\")))")))
+            .isEqualTo(new JsonString("int"));
+    }
+
+    @Test
+    void bA23_strCountPromotesToDoubleInMixedArithmetic() {
+        assertThat(evaluator.eval(parse("(+ (str-count (quote \"hi\")) 0.5)"))).isEqualTo(new JsonNumber(2.5));
     }
 
     @Test
