@@ -5,8 +5,8 @@
 | カテゴリ | 関数 | 状態 |
 |---------|------|------|
 | 文字列基盤 | str-count, str-get, subs, str-upper, str-lower, str-trim, str-starts-with?, str-ends-with?, str-contains?, str-split, str-join, str-replace, str-replace-first, str-index-of, str->number, number->str, str->keyword, keyword->str, char-at, str-empty?, str-blank?, str | ✅ PR-A |
-| 配列基本 | count, conj, get, nth, take, drop など | ⏸ PR-B |
-| マップ・コレクション | keys, values, has-key?, assoc, dissoc など | ⏸ PR-B |
+| 配列基本 | count, conj, get, nth, first, rest, last, cons, concat, reverse, sort, sort-by, subvec, range, index-of, contains? | ✅ PR-B |
+| マップ・コレクション | assoc, dissoc, keys, vals, entries, from-entries, merge, update, select-keys, empty?, get-in, assoc-in, update-in, dissoc-in | ✅ PR-B |
 | 高階関数 | map, filter, reduce, sort-by など | ⏸ PR-C |
 | JSON・I/O | to-json, parse-json, read-file など | ⏸ PR-C |
 
@@ -14,4 +14,5 @@
 
 - 本 PR-A は Evaluator の builtins ディスパッチ基盤 + 文字列 22 関数の first cut を実装。
 - `str-count` / `str-index-of` の戻り値型は `int` (cmd_416 で `JsonNumber` から `JaloInt` へ統一)。
-- 残関数は cmd_413 PR-B / PR-C で段階的に実装する。
+- cmd_413 PR-B で Array / Map / Seq 基本関数群を追加済み。
+- 高階関数と JSON・I/O の残タスクは cmd_413 PR-C で実装予定。
