@@ -78,6 +78,20 @@ REPL モード (引数なし):
 ./gradlew run --args="examples/hello.jal"
 ```
 
+jq モード:
+
+```bash
+./gradlew run --args="-j '.foo | .bar' data.json"
+./gradlew run --args="-j -c '.items' data.json"
+./gradlew run --args="-j -n '.'"
+```
+
+`.jq` ファイル実行 (自動 jq モード):
+
+```bash
+./gradlew run --args="filters/sample.jq"
+```
+
 ## 伝統的 Lisp ユーザーへの注
 
 jalo は Common Lisp / Scheme の慣習とは意図的に異なる設計をしています。

@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-05-12
+
+### Added
+
+- jq compatibility layer completed across PR-A/PR-B/PR-C as first-class jalo built-ins.
+- CLI jq mode: `-j <filter> [<json-file>]`, `-c` compact output, `-n/--null-input`.
+- Auto jq mode for `.jq` file extension.
+- `docs/JQ_COMPAT_STATUS.md` updated to current compatibility matrix and PR-C coverage.
+
+### Changed
+
+- `docs/SPEC.md` §6/§7 updated with jq mode CLI definitions and transpile-strategy note.
+- Project version bumped from `0.4.1` to `0.5.0`.
+
 ## [0.4.1] - 2026-05-11
 
 ### Changed

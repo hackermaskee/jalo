@@ -744,21 +744,24 @@ jalo は jq との互換性を付加価値として持つ。
 - すべての jq 機能を網羅する必要はなく、代表的なフィルタ機能を優先する
 - jq プリミティブは jalo ビルトインでなく、jalo で定義されたライブラリとして実装してよい
 - jq 構文上の多義的記号 (例: `[]`) は、AST 上では別ノードとして区別する
+- 現版は jq フィルタを jalo AST へトランスパイルする方式を採用する
+- マクロ実装導入後 (1.0+) に、トランスパイル方式の再検討を行う
+- 実装済み範囲は `docs/JQ_COMPAT_STATUS.md` で管理する
 
-## 6. REPL & CLI
+## 7. REPL & CLI
 
-### 6.1 REPL Commands
+### 7.1 REPL Commands
 
 - `:quit` / `:q`: exit REPL loop
 - `:reset`: clear evaluator environment (e.g., bindings created by `def`)
 
-### 6.2 Multi-line Input
+### 7.2 Multi-line Input
 
 REPL accumulates lines while bracket depth is unbalanced.
 Target brackets are `()`, `[]`, and `{}`.
 A complete expression is evaluated when total depth returns to zero or below.
 
-### 6.3 Error Display Format
+### 7.3 Error Display Format
 
 REPL and CLI print errors using this format:
 
@@ -769,17 +772,23 @@ REPL and CLI print errors using this format:
 If line/column is unavailable, positional segment is omitted.
 `KIND` is one of: `LEX`, `PARSE`, `SYNTAX`, `EFFECT`, `INTERNAL`.
 
-### 6.4 CLI Modes
+### 7.4 CLI Modes
 
-`jalo` has three command-line modes:
+`jalo` has four command-line modes:
 
 1. No arguments: interactive REPL mode
 2. `-e <expr>`: evaluate one expression and exit
-3. `<file>`: read source from file, evaluate once, and exit
+3. `-j <filter> [<json-file>]` (+ `-c`, `-n`): jq mode
+4. `<file>`: read source from file and evaluate once. If extension is `.jq`, jq mode is selected automatically.
 
 Any other argument pattern prints usage and exits with code `2`.
 
-### 6.5 Exit Codes
+`-j` mode options:
+
+- `-c`: compact JSON output (no trailing newline)
+- `-n`, `--null-input`: do not read stdin/file and evaluate with `null` input
+
+### 7.5 Exit Codes
 
 - `0`: success
 - `1`: evaluation failure or I/O error

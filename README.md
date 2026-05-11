@@ -78,6 +78,20 @@ File mode:
 ./gradlew run --args="examples/hello.jal"
 ```
 
+jq mode:
+
+```bash
+./gradlew run --args="-j '.foo | .bar' data.json"
+./gradlew run --args="-j -c '.items' data.json"
+./gradlew run --args="-j -n '.'"
+```
+
+`.jq` file mode (auto jq mode):
+
+```bash
+./gradlew run --args="filters/sample.jq"
+```
+
 ## Notes for traditional Lisp users
 
 jalo intentionally diverges from Common Lisp / Scheme conventions.
