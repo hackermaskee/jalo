@@ -100,7 +100,7 @@ public final class Evaluator {
 
         return switch (op.value()) {
             case "quote" -> evalQuote(form);
-            case "backquote" -> evalBackquote(form, env);
+            case "quasiquote" -> evalBackquote(form, env);
             case "if" -> evalIf(form, env);
             case "and" -> evalAnd(form, env);
             case "or" -> evalOr(form, env);
@@ -157,12 +157,12 @@ public final class Evaluator {
     }
 
     /**
-     * Evaluates a {@code backquote} form, constructing a JSON value from a template pattern.
+     * Evaluates a {@code quasiquote} form, constructing a JSON value from a template pattern.
      *
      * <p>Supports {@code (dollar e)} for expression embedding,
      * {@code (at e)} for array splicing, and {@code (percent e)} for map merging (SPEC §5.2).
      *
-     * @param form  the AST node {@code ["backquote", pattern]}; must have exactly 2 elements
+     * @param form  the AST node {@code ["quasiquote", pattern]}; must have exactly 2 elements
      * @param env   the current evaluation environment
      * @return the constructed JSON value
      * @throws JaloEffectSignal with effect {@code "error"} if the form is malformed
@@ -170,7 +170,7 @@ public final class Evaluator {
      */
     private JaloValue evalBackquote(JaloArray form, Environment env) {
         if (form.size() != 2) {
-            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for backquote"));
+            throw new JaloEffectSignal(new JaloString("error"), new JaloString("Wrong arity for quasiquote"));
         }
         return constructFromPattern(form.get(1), env);
     }
@@ -187,7 +187,7 @@ public final class Evaluator {
         }
 
         return switch (opNode.value()) {
-            case "dollar" -> {
+            case "var" -> {
                 if (form.size() != 2) {
                     throw new JaloEffectSignal(new JaloString("error"), new JaloString("Malformed dollar form"));
                 }
@@ -207,7 +207,7 @@ public final class Evaluator {
             if (elt instanceof JaloArray inner
                     && inner.size() == 2
                     && inner.get(0) instanceof JaloString op
-                    && "at".equals(op.value())) {
+                    && "rest-seq".equals(op.value())) {
                 JaloValue arr = eval(inner.get(1), env);
                 if (!(arr instanceof JaloArray a)) {
                     throw new JaloEffectSignal(new JaloString("error"), new JaloString("splice target must be array"));
@@ -230,7 +230,7 @@ public final class Evaluator {
                 continue;
             }
             JaloValue head = entry.get(0);
-            if (head instanceof JaloString op && "percent".equals(op.value())) {
+            if (head instanceof JaloString op && "rest-map".equals(op.value())) {
                 JaloValue extra = eval(entry.get(1), env);
                 if (!(extra instanceof JaloMap obj)) {
                     throw new JaloEffectSignal(new JaloString("error"), new JaloString("percent splice target must be map"));

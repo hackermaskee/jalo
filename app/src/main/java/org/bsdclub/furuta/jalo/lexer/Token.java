@@ -13,6 +13,7 @@ public sealed interface Token permits
     Token.Null, Token.True, Token.False,
     Token.Str, Token.Identifier,
     Token.LBracket, Token.RBracket,
+    Token.HashBracketOpen, Token.HashCurlyOpen,
     Token.LParen, Token.RParen,
     Token.LBrace, Token.RBrace,
     Token.Colon, Token.Comma,
@@ -43,6 +44,8 @@ public sealed interface Token permits
     record Identifier(String name, int line, int col) implements Token {}
     record LBracket(int line, int col) implements Token {}
     record RBracket(int line, int col) implements Token {}
+    record HashBracketOpen(int line, int col) implements Token {}
+    record HashCurlyOpen(int line, int col) implements Token {}
     record LParen(int line, int col) implements Token {}
     record RParen(int line, int col) implements Token {}
     record LBrace(int line, int col) implements Token {}

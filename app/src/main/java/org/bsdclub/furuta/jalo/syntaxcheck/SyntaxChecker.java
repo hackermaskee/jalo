@@ -52,7 +52,7 @@ public final class SyntaxChecker {
 
         return switch (op.value()) {
             case "quote" -> checkQuote(array, scope);
-            case "backquote" -> checkBackquote(array, scope);
+            case "quasiquote" -> checkBackquote(array, scope);
             case "if" -> checkIf(array, scope);
             case "def" -> checkDef(array, scope);
             case "declare" -> checkDeclare(array, scope);
@@ -87,7 +87,7 @@ public final class SyntaxChecker {
 
     private Scope checkBackquote(JaloArray form, Scope scope) {
         if (form.size() != 2) {
-            throw new SyntaxCheckException("Wrong arity for backquote: " + form);
+            throw new SyntaxCheckException("Wrong arity for quasiquote: " + form);
         }
         checkPattern(form.get(1));
         return scope;
@@ -99,9 +99,9 @@ public final class SyntaxChecker {
         }
 
         switch (op.value()) {
-            case "dollar" -> checkDollar(array);
-            case "at" -> checkAt(array);
-            case "percent" -> checkPercent(array);
+            case "var" -> checkDollar(array);
+            case "rest-seq" -> checkAt(array);
+            case "rest-map" -> checkPercent(array);
             case "array" -> checkPatternArray(array);
             case "map" -> checkPatternMap(array);
             default -> {
@@ -114,19 +114,19 @@ public final class SyntaxChecker {
 
     private void checkDollar(JaloArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
-            throw new SyntaxCheckException("Pattern: dollar followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: var followed by non-variable: " + form);
         }
     }
 
     private void checkAt(JaloArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
-            throw new SyntaxCheckException("Pattern: at followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: rest-seq followed by non-variable: " + form);
         }
     }
 
     private void checkPercent(JaloArray form) {
         if (form.size() != 2 || !(form.get(1) instanceof JaloString)) {
-            throw new SyntaxCheckException("Pattern: percent followed by non-variable: " + form);
+            throw new SyntaxCheckException("Pattern: rest-map followed by non-variable: " + form);
         }
     }
 
@@ -137,13 +137,13 @@ public final class SyntaxChecker {
             if (child instanceof JaloArray childArray
                     && childArray.size() > 0
                     && childArray.get(0) instanceof JaloString op
-                    && "at".equals(op.value())) {
+                    && "rest-seq".equals(op.value())) {
                 atCount++;
             }
             checkPattern(child);
         }
         if (atCount > 1) {
-            throw new SyntaxCheckException("Pattern: multiple 'at' in array: " + form);
+            throw new SyntaxCheckException("Pattern: multiple 'rest-seq' in array: " + form);
         }
     }
 
@@ -152,7 +152,7 @@ public final class SyntaxChecker {
         for (int i = 1; i < form.size(); i++) {
             JaloValue child = form.get(i);
             if (child instanceof JaloArray childArray && childArray.size() > 0 && childArray.get(0) instanceof JaloString op) {
-                if ("percent".equals(op.value())) {
+                if ("rest-map".equals(op.value())) {
                     percentCount++;
                     checkPattern(child);
                     continue;
@@ -160,12 +160,12 @@ public final class SyntaxChecker {
             }
 
             if (isDollarKeyEntry(child)) {
-                throw new SyntaxCheckException("Pattern: dollar key not allowed in map: " + form);
+                throw new SyntaxCheckException("Pattern: var key not allowed in map: " + form);
             }
             checkPattern(child);
         }
         if (percentCount > 1) {
-            throw new SyntaxCheckException("Pattern: multiple 'percent' in map: " + form);
+            throw new SyntaxCheckException("Pattern: multiple 'rest-map' in map: " + form);
         }
     }
 
@@ -188,7 +188,7 @@ public final class SyntaxChecker {
         if (!(node instanceof JaloArray array) || array.size() == 0 || !(array.get(0) instanceof JaloString op)) {
             return false;
         }
-        return "dollar".equals(op.value());
+        return "var".equals(op.value());
     }
 
     private Scope checkIf(JaloArray form, Scope scope) {
@@ -324,7 +324,7 @@ public final class SyntaxChecker {
             return;
         }
         switch (op.value()) {
-            case "dollar", "at", "percent" -> {
+            case "var", "rest-seq", "rest-map" -> {
                 if (array.size() == 2 && array.get(1) instanceof JaloString name && !"_".equals(name.value())) {
                     names.add(name.value());
                 }

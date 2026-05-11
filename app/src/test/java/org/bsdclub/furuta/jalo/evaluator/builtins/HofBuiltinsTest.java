@@ -20,11 +20,11 @@ class HofBuiltinsTest {
 
     @Test
     void mapFilterReduce() {
-        assertThat(evaluator.eval(parse("(map (fn [x] (+ x 1i)) (backquote (array 1i 2i 3i)))")).toString())
+        assertThat(evaluator.eval(parse("(map (fn [x] (+ x 1i)) (quasiquote (array 1i 2i 3i)))")).toString())
             .isEqualTo(JaloArray.of(new JaloInt(2), new JaloInt(3), new JaloInt(4)).toString());
-        assertThat(evaluator.eval(parse("(filter (fn [x] (> x 1i)) (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(filter (fn [x] (> x 1i)) (quasiquote (array 1i 2i 3i)))")))
             .hasToString(JaloArray.of(new JaloInt(2), new JaloInt(3)).toString());
-        assertThat(evaluator.eval(parse("(reduce (fn [a b] (+ a b)) 0i (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(reduce (fn [a b] (+ a b)) 0i (quasiquote (array 1i 2i 3i)))")))
             .hasToString(new JaloInt(6).toString());
     }
 
@@ -37,41 +37,41 @@ class HofBuiltinsTest {
 
     @Test
     void mapcatKeepTakeDropWhile() {
-        assertThat(evaluator.eval(parse("(keep (fn [x] (if (> x 2i) x #null)) (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(keep (fn [x] (if (> x 2i) x #null)) (quasiquote (array 1i 2i 3i)))")))
             .hasToString(JaloArray.of(new JaloInt(3)).toString());
-        assertThat(evaluator.eval(parse("(take-while (fn [x] (< x 3i)) (backquote (array 1i 2i 3i 4i)))")))
+        assertThat(evaluator.eval(parse("(take-while (fn [x] (< x 3i)) (quasiquote (array 1i 2i 3i 4i)))")))
             .hasToString(JaloArray.of(new JaloInt(1), new JaloInt(2)).toString());
-        assertThat(evaluator.eval(parse("(drop-while (fn [x] (< x 3i)) (backquote (array 1i 2i 3i 4i)))")))
+        assertThat(evaluator.eval(parse("(drop-while (fn [x] (< x 3i)) (quasiquote (array 1i 2i 3i 4i)))")))
             .hasToString(JaloArray.of(new JaloInt(3), new JaloInt(4)).toString());
     }
 
     @Test
     void reduceRightAndFunctionCombinators() {
-        assertThat(evaluator.eval(parse("(reduce-right (fn [x acc] (conj acc x)) (backquote (array)) (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(reduce-right (fn [x acc] (conj acc x)) (quasiquote (array)) (quasiquote (array 1i 2i 3i)))")))
             .hasToString(JaloArray.of(new JaloInt(3), new JaloInt(2), new JaloInt(1)).toString());
         assertThat(evaluator.eval(parse("((comp (fn [x] (+ x 1i)) (fn [x] (* x 2i))) 3i)"))).isEqualTo(new JaloInt(7));
         assertThat(evaluator.eval(parse("((partial (fn [x y] (+ x y)) 3i) 7i)"))).isEqualTo(new JaloInt(10));
-        assertThat(evaluator.eval(parse("((constantly 42i) (backquote \"ignored\"))"))).isEqualTo(new JaloInt(42));
+        assertThat(evaluator.eval(parse("((constantly 42i) (quasiquote \"ignored\"))"))).isEqualTo(new JaloInt(42));
         assertThat(evaluator.eval(parse("((complement (fn [x] (> x 0i))) -1i)"))).isEqualTo(JaloBool.TRUE);
     }
 
     @Test
     void mapKeysMapValsAndNotEmpty() {
-        assertThat(evaluator.eval(parse("(map-keys (fn [k] (str-upper k)) (backquote (map (\"a\" 1i) (\"b\" 2i))))")))
-            .isEqualTo(evaluator.eval(parse("(backquote (map (\"A\" 1i) (\"B\" 2i)))")));
-        assertThat(evaluator.eval(parse("(map-vals (fn [v] (+ v 1i)) (backquote (map (\"a\" 1i) (\"b\" 2i))))")))
-            .isEqualTo(evaluator.eval(parse("(backquote (map (\"a\" 2i) (\"b\" 3i)))")));
-        assertThat(evaluator.eval(parse("(not-empty (backquote (array 1i)))")))
+        assertThat(evaluator.eval(parse("(map-keys (fn [k] (str-upper k)) (quasiquote (map (\"a\" 1i) (\"b\" 2i))))")))
+            .isEqualTo(evaluator.eval(parse("(quasiquote (map (\"A\" 1i) (\"B\" 2i)))")));
+        assertThat(evaluator.eval(parse("(map-vals (fn [v] (+ v 1i)) (quasiquote (map (\"a\" 1i) (\"b\" 2i))))")))
+            .isEqualTo(evaluator.eval(parse("(quasiquote (map (\"a\" 2i) (\"b\" 3i)))")));
+        assertThat(evaluator.eval(parse("(not-empty (quasiquote (array 1i)))")))
             .hasToString(JaloArray.of(new JaloInt(1)).toString());
-        assertThat(evaluator.eval(parse("(not-empty (backquote (array)))"))).isEqualTo(JaloNull.INSTANCE);
-        assertThat(evaluator.eval(parse("(not-empty (backquote (map (\"a\" 1i))))"))).isNotEqualTo(JaloNull.INSTANCE);
+        assertThat(evaluator.eval(parse("(not-empty (quasiquote (array)))"))).isEqualTo(JaloNull.INSTANCE);
+        assertThat(evaluator.eval(parse("(not-empty (quasiquote (map (\"a\" 1i))))"))).isNotEqualTo(JaloNull.INSTANCE);
     }
 
     @Test
     void predicates() {
-        assertThat(evaluator.eval(parse("(not-any? (fn [x] (> x 10i)) (backquote (array 1i 2i 3i)))"))).isEqualTo(JaloBool.TRUE);
-        assertThat(evaluator.eval(parse("(every? (fn [x] (< x 10i)) (backquote (array 1i 2i 3i)))"))).isEqualTo(JaloBool.TRUE);
-        assertThat(evaluator.eval(parse("(some (fn [x] (if (> x 2i) x #false)) (backquote (array 1i 2i 3i)))")))
+        assertThat(evaluator.eval(parse("(not-any? (fn [x] (> x 10i)) (quasiquote (array 1i 2i 3i)))"))).isEqualTo(JaloBool.TRUE);
+        assertThat(evaluator.eval(parse("(every? (fn [x] (< x 10i)) (quasiquote (array 1i 2i 3i)))"))).isEqualTo(JaloBool.TRUE);
+        assertThat(evaluator.eval(parse("(some (fn [x] (if (> x 2i) x #false)) (quasiquote (array 1i 2i 3i)))")))
             .hasToString(new JaloInt(3).toString());
     }
 }

@@ -23,7 +23,7 @@ class PatternTest {
     @Test void p2_dollarNonVariableFails() {
         assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (array (var (+ 1 2))))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: dollar followed by non-variable");
+                .hasMessageContaining("Pattern: var followed by non-variable");
     }
 
     @Test void p3_atSingleInArrayOk() {
@@ -34,7 +34,7 @@ class PatternTest {
     @Test void p4_multipleAtInArrayFails() {
         assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (array (rest-seq r1) (rest-seq r2)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: multiple 'at' in array");
+                .hasMessageContaining("Pattern: multiple 'rest-seq' in array");
     }
 
     @Test void p5_mapStaticKeyOk() {
@@ -45,7 +45,7 @@ class PatternTest {
     @Test void p6_mapDollarKeyFails() {
         assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (map ((var k) v)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: dollar key not allowed in map");
+                .hasMessageContaining("Pattern: var key not allowed in map");
     }
 
     @Test void p7_percentSingleInMapOk() {
@@ -56,11 +56,11 @@ class PatternTest {
     @Test void p8_multiplePercentInMapFails() {
         assertThatThrownBy(() -> check(new SyntaxChecker(), "(quasiquote (map (rest-map r1) (rest-map r2)))"))
                 .isInstanceOf(SyntaxCheckException.class)
-                .hasMessageContaining("Pattern: multiple 'percent' in map");
+                .hasMessageContaining("Pattern: multiple 'rest-map' in map");
     }
 
     @Test void p9_matchWithBackquotePatternOk() {
-        assertThatCode(() -> check(new SyntaxChecker(), "(let [val 1 result 2] (match val (quasiquote (array (var x))) result))"))
+        assertThatCode(() -> check(new SyntaxChecker(), "(let [val 1 result 2] (match val #[$x] result))"))
                 .doesNotThrowAnyException();
     }
 

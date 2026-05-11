@@ -114,6 +114,14 @@ public final class Lexer {
 
     private Token parseHashLiteral(int startLine, int startCol) {
         advance(); // '#'
+        if (!isAtEnd() && current() == '[') {
+            advance();
+            return new Token.HashBracketOpen(startLine, startCol);
+        }
+        if (!isAtEnd() && current() == '{') {
+            advance();
+            return new Token.HashCurlyOpen(startLine, startCol);
+        }
         int literalStart = idx;
         while (!isAtEnd() && Character.isLetter(current())) {
             advance();

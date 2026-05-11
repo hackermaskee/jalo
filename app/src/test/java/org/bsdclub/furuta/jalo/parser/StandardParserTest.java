@@ -48,7 +48,7 @@ class StandardParserTest {
     @Test
     void c15_backquoteLiteral() {
         assertThat(parse("`42"))
-            .isEqualTo(JaloArray.of(new JaloString("backquote"), new JaloInt(42)));
+            .isEqualTo(JaloArray.of(new JaloString("quasiquote"), new JaloInt(42)));
     }
 
     @Test
@@ -56,7 +56,7 @@ class StandardParserTest {
         assertThat(parse("#[1 2 3]"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("array"),
                         new JaloInt(1),
@@ -69,11 +69,11 @@ class StandardParserTest {
         assertThat(parse("#[$x @arr]"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("array"),
-                        JaloArray.of(new JaloString("dollar"), new JaloString("x")),
-                        JaloArray.of(new JaloString("at"), new JaloString("arr")))));
+                        JaloArray.of(new JaloString("var"), new JaloString("x")),
+                        JaloArray.of(new JaloString("rest-seq"), new JaloString("arr")))));
     }
 
     @Test
@@ -81,19 +81,19 @@ class StandardParserTest {
         assertThat(parse("#{name: $n}"))
             .isEqualTo(
                 JaloArray.of(
-                    new JaloString("backquote"),
+                    new JaloString("pattern"),
                     JaloArray.of(
                         new JaloString("map"),
                         JaloArray.of(
                             new JaloString("name"),
-                            JaloArray.of(new JaloString("dollar"), new JaloString("n"))))));
+                            JaloArray.of(new JaloString("var"), new JaloString("n"))))));
     }
 
     @Test
     void c19_dollarOutsideBackquoteFails() {
         assertThatThrownBy(() -> parse("$x"))
             .isInstanceOf(ParserException.class)
-            .hasMessageContaining("$ outside backquote context");
+            .hasMessageContaining("$ outside quasiquote context");
     }
 
     @Test
