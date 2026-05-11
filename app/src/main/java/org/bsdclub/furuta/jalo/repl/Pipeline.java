@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.OptionalInt;
 import org.bsdclub.furuta.jalo.evaluator.Evaluator;
 import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
-import org.bsdclub.furuta.jalo.json.JsonValue;
+import org.bsdclub.furuta.jalo.value.JaloValue;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.lexer.LexerException;
 import org.bsdclub.furuta.jalo.lexer.Token;
@@ -12,7 +12,6 @@ import org.bsdclub.furuta.jalo.parser.Parser;
 import org.bsdclub.furuta.jalo.parser.ParserException;
 import org.bsdclub.furuta.jalo.syntaxcheck.SyntaxCheckException;
 import org.bsdclub.furuta.jalo.syntaxcheck.SyntaxChecker;
-import org.bsdclub.furuta.jalo.value.JaloValue;
 
 /**
  * Connects lexer, parser, syntax checker, and evaluator into one stateful pipeline.
@@ -38,7 +37,7 @@ public final class Pipeline {
     public EvalResult run(String src) {
         try {
             List<Token> tokens = new Lexer().tokenize(src);
-            JsonValue ast = new Parser().parseStandard(tokens);
+            JaloValue ast = new Parser().parseStandard(tokens);
             syntaxChecker.check(ast);
             JaloValue value = evaluator.eval(ast);
             return new EvalResult.Success(value);

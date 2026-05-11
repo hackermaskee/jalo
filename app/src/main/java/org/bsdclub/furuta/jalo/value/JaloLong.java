@@ -10,4 +10,5 @@ package org.bsdclub.furuta.jalo.value;
  * @see JaloValue
  */
 public record JaloLong(long value) implements JaloValue {
+    @Override public String toString() { return String.valueOf(value); }
 }

@@ -1,11 +1,10 @@
-package org.bsdclub.furuta.jalo.evaluator;
+package org.bsdclub.furuta.jalo.value;
 
 import java.util.List;
+import org.bsdclub.furuta.jalo.evaluator.Environment;
+import org.bsdclub.furuta.jalo.evaluator.Evaluator;
+import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
 import org.bsdclub.furuta.jalo.evaluator.builtins.Callable;
-import org.bsdclub.furuta.jalo.json.JsonArray;
-import org.bsdclub.furuta.jalo.json.JsonString;
-import org.bsdclub.furuta.jalo.json.JsonValue;
-import org.bsdclub.furuta.jalo.value.JaloValue;
 
 /**
  * Closure value representing a jalo function ({@code (fn ...)}).
@@ -20,7 +19,7 @@ import org.bsdclub.furuta.jalo.value.JaloValue;
 public final class JaloFunction implements JaloValue, Callable {
     private final List<String> params;
     private final String restParam;
-    private final List<JsonValue> body;
+    private final List<JaloValue> body;
     private final Environment closure;
 
     /**
@@ -31,7 +30,7 @@ public final class JaloFunction implements JaloValue, Callable {
      * @param body function body forms
      * @param closure captured lexical environment
      */
-    public JaloFunction(List<String> params, String restParam, List<JsonValue> body, Environment closure) {
+    public JaloFunction(List<String> params, String restParam, List<JaloValue> body, Environment closure) {
         this.params = params;
         this.restParam = restParam;
         this.body = body;
@@ -51,10 +50,10 @@ public final class JaloFunction implements JaloValue, Callable {
      */
     public JaloValue apply(List<JaloValue> args, Evaluator evaluator) {
         if (restParam == null && args.size() != params.size()) {
-            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Arity mismatch"));
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("Arity mismatch"));
         }
         if (restParam != null && args.size() < params.size()) {
-            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Arity mismatch"));
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("Arity mismatch"));
         }
 
         Environment env = closure;
@@ -62,11 +61,11 @@ public final class JaloFunction implements JaloValue, Callable {
             env = env.bind(params.get(i), args.get(i));
         }
         if (restParam != null) {
-            JsonArray rest = JsonArray.empty();
+            JaloArray rest = JaloArray.empty();
             for (int i = params.size(); i < args.size(); i++) {
                 JaloValue v = args.get(i);
-                if (!(v instanceof JsonValue jsonValue)) {
-                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Non-JSON value in rest args"));
+                if (!(v instanceof JaloValue jsonValue)) {
+                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("Non-JSON value in rest args"));
                 }
                 rest = rest.append(jsonValue);
             }
@@ -74,7 +73,7 @@ public final class JaloFunction implements JaloValue, Callable {
         }
 
         JaloValue result = null;
-        for (JsonValue form : body) {
+        for (JaloValue form : body) {
             result = evaluator.eval(form, env);
         }
         return result;
@@ -88,21 +87,21 @@ public final class JaloFunction implements JaloValue, Callable {
      * @return closure value
      * @throws JaloEffectSignal if the function form is malformed
      */
-    public static JaloFunction fromForm(JsonArray fnForm, Environment closure) {
-        if (fnForm.size() < 3 || !(fnForm.get(1) instanceof JsonArray paramVec)) {
-            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Malformed fn"));
+    public static JaloFunction fromForm(JaloArray fnForm, Environment closure) {
+        if (fnForm.size() < 3 || !(fnForm.get(1) instanceof JaloArray paramVec)) {
+            throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("Malformed fn"));
         }
 
         java.util.ArrayList<String> params = new java.util.ArrayList<>();
         String rest = null;
         for (int i = 0; i < paramVec.size(); i++) {
-            JsonValue pv = paramVec.get(i);
-            if (!(pv instanceof JsonString p)) {
-                throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("fn params must be identifiers"));
+            JaloValue pv = paramVec.get(i);
+            if (!(pv instanceof JaloString p)) {
+                throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("fn params must be identifiers"));
             }
             if ("&".equals(p.value())) {
-                if (i != paramVec.size() - 2 || !(paramVec.get(i + 1) instanceof JsonString restName)) {
-                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.json.JsonString("error"), new org.bsdclub.furuta.jalo.json.JsonString("Malformed fn rest parameter"));
+                if (i != paramVec.size() - 2 || !(paramVec.get(i + 1) instanceof JaloString restName)) {
+                    throw new JaloEffectSignal(new org.bsdclub.furuta.jalo.value.JaloString("error"), new org.bsdclub.furuta.jalo.value.JaloString("Malformed fn rest parameter"));
                 }
                 rest = restName.value();
                 break;
@@ -110,7 +109,7 @@ public final class JaloFunction implements JaloValue, Callable {
             params.add(p.value());
         }
 
-        java.util.ArrayList<JsonValue> body = new java.util.ArrayList<>();
+        java.util.ArrayList<JaloValue> body = new java.util.ArrayList<>();
         for (int i = 2; i < fnForm.size(); i++) {
             body.add(fnForm.get(i));
         }
