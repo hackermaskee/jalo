@@ -77,4 +77,16 @@ class JqBuiltinsTest {
         assertThat(evaluator.eval(parse("(with-entries (fn [e] e) {a: 1 b: 2})")))
             .isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2)));
     }
+
+    @Test
+    void acceptsAny() {
+        JaloValue result = evaluator.eval(parse("(any (fn [x] (> x 2i)) (quasiquote (array 1i 2i 3i)))"));
+        assertThat(result).isEqualTo(org.bsdclub.furuta.jalo.value.JaloBool.TRUE);
+    }
+
+    @Test
+    void acceptsAll() {
+        JaloValue result = evaluator.eval(parse("(all (fn [x] (> x 0i)) (quasiquote (array 1i 2i 3i)))"));
+        assertThat(result).isEqualTo(org.bsdclub.furuta.jalo.value.JaloBool.TRUE);
+    }
 }
