@@ -3,6 +3,24 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-11
+
+### BREAKING CHANGES
+
+- Suffix-less integer literals now produce `JaloInt` instead of `JaloNumber` (double).
+  `(type 42)` is now `"int"` (was `"double"`).
+
+### Added
+
+- `d` suffix for explicit double literals: `42d` -> `JaloNumber(42.0)`.
+- Int overflow auto-promotes to `JaloLong` (for example, `2147483648`).
+- Long overflow now raises parse error.
+
+### Changed
+
+- SPEC §3.1 numeric literal table revised for integer-default behavior and `d` suffix.
+- SPEC §3.4 adds a note clarifying integer handling difference between standard syntax and `from-json`.
+
 ## [0.2.0] - 2026-05-11
 
 ### BREAKING CHANGES
