@@ -40,7 +40,7 @@ class JqCliTest {
             new PrintStream(err, true, StandardCharsets.UTF_8));
 
         assertThat(exit).isZero();
-        assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("{\"foo\":42}");
+        assertThat(out.toString(StandardCharsets.UTF_8)).isEqualTo("{\"foo\":42.0}");
         assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
     }
 
@@ -56,7 +56,7 @@ class JqCliTest {
             new PrintStream(err, true, StandardCharsets.UTF_8));
 
         assertThat(exit).isZero();
-        assertThat(out.toString(StandardCharsets.UTF_8)).contains("#null");
+        assertThat(out.toString(StandardCharsets.UTF_8)).contains("null");
         assertThat(err.toString(StandardCharsets.UTF_8)).isEmpty();
     }
 

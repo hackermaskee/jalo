@@ -27,14 +27,17 @@
 | T-021 | aggregate | `group_by(.type)` | PR-B | ✅ |
 | T-022 | set_operations | `unique` | PR-B | ✅ |
 | T-023 | set_operations | `sort_by(.foo)` | PR-B | ✅ |
-| T-024 | formats | `@csv` | PR-C | 📋 |
-| T-025 | formats | `@base64` | PR-C | 📋 |
+| T-024 | formats | `@csv` | PR-C | ✅ |
+| T-025 | formats | `@base64` | PR-C | ✅ |
 
-## This PR-B implementation
+## PR-C updates
 
-- Added: `add`, `sort-by`, `unique`, `to-entries`, `from-entries`, `with-entries`, `not`, `any`, `all`
-- Parser support added: `if ... then ... else ... end`, `and`, `or`, `. as [$a, $b] | ...`, `. as {foo: $f} | ...`
-- jq mode acceptance tests added for `if-then-else-end` and `. as` destructuring
+- Added CLI jq mode:
+  - `jalo -j '<filter>' [<json-file>]`
+  - `-c` compact JSON output
+  - `-n` / `--null-input`
+  - `.jq` extension auto-detect mode
+- Updated status for PR-C scope items (`@csv`, `@base64`)
 
 ## Explicitly unsupported / pending
 
@@ -43,4 +46,3 @@
 - `def f(x): ...` (❌)
 - `$ENV` (❌ in this PR-B)
 - `$__loc__` (❌ in this PR-B)
-
