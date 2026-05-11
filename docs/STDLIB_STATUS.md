@@ -13,4 +13,5 @@
 ## Note
 
 - 本 PR-A は Evaluator の builtins ディスパッチ基盤 + 文字列 22 関数の first cut を実装。
+- `str-count` / `str-index-of` の戻り値型は `int` (cmd_416 で `JsonNumber` から `JaloInt` へ統一)。
 - 残関数は cmd_413 PR-B / PR-C で段階的に実装する。

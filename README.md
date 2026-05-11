@@ -46,6 +46,7 @@ jalo> :quit
 (quote foo)                        => "foo"
 'foo                               => "foo"
 '(1 2 3)                           => [1,2,3]
+(str-count "hello")                => 5   ; int
 (if #true 1 0)                     => 1
 (fn [x] (* x x))                   => <function value>
 (handle (raise (quote e) 42) [(quote e) v v]) => 42
@@ -88,6 +89,7 @@ Below are the key differences to keep in mind:
 | Boolean literals | `t` / `nil` (CL) | `#true` / `#false` | Distinct from null and empty list |
 | Numeric type tags | implicit | `42i` / `42L` / `3.14` | Three numeric types per SPEC §2.1 |
 | Quote shorthand | `(quote expr)` | `'<expr>` also available | Traditional Lisp notation support |
+| Integer counts and indices | implementation-dependent numeric type | `count`/`index-of`/`str-count`/`str-index-of` return `int` | matches exact integer semantics |
 
 ### Notes
 
