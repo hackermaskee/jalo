@@ -7,7 +7,6 @@ import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloMap;
 import org.junit.jupiter.api.Test;
@@ -30,7 +29,7 @@ class SeqBuiltinsTest {
     @Test
     void bB22_getIn() {
         assertThat(evaluator.eval(parse("(get-in (backquote (map (\"a\" (map (\"b\" 42i))))) (backquote (array \"a\" \"b\")))")))
-            .isEqualTo(new JaloNumber(42));
+            .isEqualTo(new JaloInt(42));
     }
 
     @Test

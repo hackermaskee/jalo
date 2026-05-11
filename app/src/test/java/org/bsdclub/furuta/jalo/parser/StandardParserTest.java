@@ -5,8 +5,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloInt;
+import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloNull;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloMap;
 import org.bsdclub.furuta.jalo.value.JaloString;
 import org.bsdclub.furuta.jalo.value.JaloValue;
@@ -24,30 +25,30 @@ class StandardParserTest {
     @Test void c1_hashNull() { assertThat(parse("#null")).isEqualTo(JaloNull.INSTANCE); }
     @Test void c2_hashTrue() { assertThat(parse("#true")).isEqualTo(JaloBool.TRUE); }
     @Test void c3_hashFalse() { assertThat(parse("#false")).isEqualTo(JaloBool.FALSE); }
-    @Test void c4_intSuffix() { assertThat(parse("42i")).isEqualTo(JaloArray.of(new JaloString("int"), new JaloNumber(42.0))); }
-    @Test void c5_longSuffix() { assertThat(parse("42l")).isEqualTo(JaloArray.of(new JaloString("long"), new JaloNumber(42.0))); }
+    @Test void c4_intSuffix() { assertThat(parse("42i")).isEqualTo(new JaloInt(42)); }
+    @Test void c5_longSuffix() { assertThat(parse("42l")).isEqualTo(new JaloLong(42L)); }
     @Test void c6_identifierLiteral() { assertThat(parse("foo")).isEqualTo(new JaloString("foo")); }
-    @Test void c7_bracketArrayWhitespace() { assertThat(parse("[1 2 3]")).isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0))); }
-    @Test void c8_parenArrayWhitespace() { assertThat(parse("(1 2 3)")).isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0))); }
-    @Test void c9_bracketArrayComma() { assertThat(parse("[1, 2, 3]")).isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0))); }
-    @Test void c10_objectWhitespace() { assertThat(parse("{a: 1 b: 2}")).isEqualTo(JaloMap.empty().put("a", new JaloNumber(1.0)).put("b", new JaloNumber(2.0))); }
-    @Test void c11_objectComma() { assertThat(parse("{a: 1, b: 2}")).isEqualTo(JaloMap.empty().put("a", new JaloNumber(1.0)).put("b", new JaloNumber(2.0))); }
-    @Test void c12_prefixCallLikeForm() { assertThat(parse("(+ 1 2)")).isEqualTo(JaloArray.of(new JaloString("+"), new JaloNumber(1.0), new JaloNumber(2.0))); }
+    @Test void c7_bracketArrayWhitespace() { assertThat(parse("[1 2 3]")).isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3))); }
+    @Test void c8_parenArrayWhitespace() { assertThat(parse("(1 2 3)")).isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3))); }
+    @Test void c9_bracketArrayComma() { assertThat(parse("[1, 2, 3]")).isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3))); }
+    @Test void c10_objectWhitespace() { assertThat(parse("{a: 1 b: 2}")).isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2))); }
+    @Test void c11_objectComma() { assertThat(parse("{a: 1, b: 2}")).isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2))); }
+    @Test void c12_prefixCallLikeForm() { assertThat(parse("(+ 1 2)")).isEqualTo(JaloArray.of(new JaloString("+"), new JaloInt(1), new JaloInt(2))); }
     @Test
     void c13_nestedForm() {
         assertThat(parse("(if (= x 0) 1 2)"))
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("if"),
-                    JaloArray.of(new JaloString("="), new JaloString("x"), new JaloNumber(0.0)),
-                    new JaloNumber(1.0),
-                    new JaloNumber(2.0)));
+                    JaloArray.of(new JaloString("="), new JaloString("x"), new JaloInt(0)),
+                    new JaloInt(1),
+                    new JaloInt(2)));
     }
-    @Test void c14_jsonBoundary() { assertThat(parse("{\"a\": 1}")).isEqualTo(JaloMap.empty().put("a", new JaloNumber(1.0))); }
+    @Test void c14_jsonBoundary() { assertThat(parse("{\"a\": 1}")).isEqualTo(JaloMap.empty().put("a", new JaloInt(1))); }
     @Test
     void c15_backquoteLiteral() {
         assertThat(parse("`42"))
-            .isEqualTo(JaloArray.of(new JaloString("backquote"), new JaloNumber(42.0)));
+            .isEqualTo(JaloArray.of(new JaloString("backquote"), new JaloInt(42)));
     }
 
     @Test
@@ -58,9 +59,9 @@ class StandardParserTest {
                     new JaloString("backquote"),
                     JaloArray.of(
                         new JaloString("array"),
-                        new JaloNumber(1.0),
-                        new JaloNumber(2.0),
-                        new JaloNumber(3.0))));
+                        new JaloInt(1),
+                        new JaloInt(2),
+                        new JaloInt(3))));
     }
 
     @Test
@@ -104,7 +105,7 @@ class StandardParserTest {
     @Test
     void c21_quoteShorthandNumber() {
         assertThat(parse("'42"))
-            .isEqualTo(JaloArray.of(new JaloString("quote"), new JaloNumber(42.0)));
+            .isEqualTo(JaloArray.of(new JaloString("quote"), new JaloInt(42)));
     }
 
     @Test
@@ -122,7 +123,7 @@ class StandardParserTest {
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("quote"),
-                    JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0))));
+                    JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3))));
     }
 
     @Test
@@ -131,7 +132,7 @@ class StandardParserTest {
             .isEqualTo(
                 JaloArray.of(
                     new JaloString("quote"),
-                    JaloMap.empty().put("a", new JaloNumber(1.0))));
+                    JaloMap.empty().put("a", new JaloInt(1))));
     }
 
     @Test
