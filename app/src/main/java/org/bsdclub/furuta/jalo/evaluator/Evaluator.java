@@ -11,6 +11,7 @@ import org.bsdclub.furuta.jalo.evaluator.builtins.ArrayBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.MapBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.SeqBuiltins;
 import org.bsdclub.furuta.jalo.evaluator.builtins.StringBuiltins;
+import org.bsdclub.furuta.jalo.evaluator.builtins.TypeBuiltins;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloFunction;
@@ -50,6 +51,7 @@ public final class Evaluator {
         ArrayBuiltins.registerAll(registry);
         MapBuiltins.registerAll(registry);
         SeqBuiltins.registerAll(registry);
+        TypeBuiltins.registerAll(registry);
     }
 
     /**
