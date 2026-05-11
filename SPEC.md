@@ -5,6 +5,9 @@
 jalo は S 式の代わりに JSON データモデルを AST として使う Lisp 方言である。
 ホモイコニックな純粋関数型言語。
 
+jalo の全ランタイム値は sealed interface `JaloValue` の直接実装であり、
+中間層の抽象型は存在しない。
+
 ### 1.1 名前について
 
 言語名は **jalo** (ジャロ)。以下の由来を持つ。
@@ -18,7 +21,7 @@ jalo は S 式の代わりに JSON データモデルを AST として使う Lis
 
 ### 1.2 バージョニング規約 (Versioning Policy)
 
-- 現バージョンは `0.1.0` とする。
+- 現バージョンは `0.2.0` とする。
 - `1.0.0` 未満は **incubation** と位置づけ、言語仕様は非後方互換な変更を含みうる。
 - `0.x.y` の運用規則:
   - 軽微な変更 (新関数追加・バグ修正など) は `y` をインクリメントする。
@@ -29,16 +32,24 @@ jalo は S 式の代わりに JSON データモデルを AST として使う Lis
 
 ---
 
-## 2. JSON モデル
+## 2. 型モデル (JaloValue)
 
-jalo の AST は **JSON モデル** である。JSON テキストそのものではなく、
-JSON テキストが表現するデータ構造（の抽象）を指す。
+jalo の値は **sealed interface `JaloValue`** を頂点とする。
+中間層 `JsonValue` は廃止され、すべての値型は `JaloValue` の直接実装である。
 
-JSON モデルは再帰的に定義される:
+`JaloValue` の permitted 型は以下の 9 種とする:
 
-- **基本データ**: null, boolean (true/false), 数値, 文字列
-- **配列**: `[d0, d1, ..., dn]` — 各要素が JSON モデル
-- **オブジェクト (Map)**: `{s0:d0, s1:d1, ..., sn:dn}` — キーは互いに異なる文字列、値は JSON モデル
+- `JaloNull` — null 値
+- `JaloBool` — 真偽値 (`#true` / `#false`)
+- `JaloNumber` — IEEE 754 倍精度浮動小数点数 (JSON互換数値)
+- `JaloString` — Unicode 文字列
+- `JaloArray` — 不変配列 (要素型: `JaloValue` — `JaloInt` 直接格納可)
+- `JaloMap` — 不変マップ (値型: `JaloValue` — `JaloInt` 直接格納可)
+- `JaloInt` — Java `int` 整数 (非 JSON)
+- `JaloLong` — Java `long` 整数 (非 JSON)
+- `JaloFunction` — クロージャ (非 JSON)
+
+JSON 適合性が必要な場面では、動的判定関数 `(pure-json? x)` を使用する (SPEC §4.5 参照)。
 
 JSON モデルの表現としては JSON テキスト・YAML・後述の標準構文などが使える。
 
