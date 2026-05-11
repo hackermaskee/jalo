@@ -230,7 +230,7 @@ public final class Lexer {
             }
         }
 
-        if (!isAtEnd() && (current() == 'i' || current() == 'l')) {
+        if (!isAtEnd() && (current() == 'i' || current() == 'l' || current() == 'd')) {
             char suffix = current();
             if (hasFraction || hasExponent) {
                 throw new LexerException("suffix not allowed for floating number", startLine, startCol);
@@ -238,15 +238,30 @@ public final class Lexer {
             advance();
             String numeric = input.substring(start, idx - 1);
             try {
-                return suffix == 'i'
-                    ? new Token.NumberInt(Integer.parseInt(numeric), startLine, startCol)
-                    : new Token.NumberLong(Long.parseLong(numeric), startLine, startCol);
+                if (suffix == 'i') {
+                    return new Token.NumberInt(Integer.parseInt(numeric), startLine, startCol);
+                }
+                if (suffix == 'l') {
+                    return new Token.NumberLong(Long.parseLong(numeric), startLine, startCol);
+                }
+                return new Token.NumberDouble(Double.parseDouble(numeric), startLine, startCol);
             } catch (NumberFormatException ex) {
                 throw new LexerException("invalid integer literal", startLine, startCol);
             }
         }
 
         String numeric = input.substring(start, idx);
+        if (!hasFraction && !hasExponent) {
+            try {
+                long value = Long.parseLong(numeric);
+                if (value >= Integer.MIN_VALUE && value <= Integer.MAX_VALUE) {
+                    return new Token.NumberInt((int) value, startLine, startCol);
+                }
+                return new Token.NumberLong(value, startLine, startCol);
+            } catch (NumberFormatException ex) {
+                throw new LexerException("Number literal out of long range: " + numeric, startLine, startCol);
+            }
+        }
         try {
             return new Token.NumberDouble(Double.parseDouble(numeric), startLine, startCol);
         } catch (NumberFormatException ex) {

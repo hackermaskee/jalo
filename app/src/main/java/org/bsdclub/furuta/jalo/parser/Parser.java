@@ -3,6 +3,8 @@ package org.bsdclub.furuta.jalo.parser;
 import java.util.List;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
+import org.bsdclub.furuta.jalo.value.JaloInt;
+import org.bsdclub.furuta.jalo.value.JaloLong;
 import org.bsdclub.furuta.jalo.value.JaloNull;
 import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloMap;
@@ -94,14 +96,8 @@ public final class Parser {
             case Token.True t -> { advance(); yield JaloBool.TRUE; }
             case Token.False t -> { advance(); yield JaloBool.FALSE; }
             case Token.NumberDouble t -> { advance(); yield new JaloNumber(t.value()); }
-            case Token.NumberInt t -> {
-                advance();
-                yield JaloArray.of(new JaloString("int"), new JaloNumber(t.value()));
-            }
-            case Token.NumberLong t -> {
-                advance();
-                yield JaloArray.of(new JaloString("long"), new JaloNumber(t.value()));
-            }
+            case Token.NumberInt t -> { advance(); yield new JaloInt(t.value()); }
+            case Token.NumberLong t -> { advance(); yield new JaloLong(t.value()); }
             case Token.Str t -> { advance(); yield new JaloString(t.value()); }
             case Token.Identifier t -> { advance(); yield new JaloString(t.name()); }
             case Token.Quote t -> {
