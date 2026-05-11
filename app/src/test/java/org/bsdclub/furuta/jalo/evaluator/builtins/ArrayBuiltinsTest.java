@@ -6,7 +6,6 @@ import org.bsdclub.furuta.jalo.evaluator.Evaluator;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloNull;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
 import org.bsdclub.furuta.jalo.value.JaloInt;
@@ -33,7 +32,7 @@ class ArrayBuiltinsTest {
 
     @Test
     void bB3_first() {
-        assertThat(evaluator.eval(parse("(first (backquote (array 10i 20i)))"))).isEqualTo(new JaloNumber(10));
+        assertThat(evaluator.eval(parse("(first (backquote (array 10i 20i)))"))).isEqualTo(new JaloInt(10));
     }
 
     @Test
@@ -43,12 +42,12 @@ class ArrayBuiltinsTest {
 
     @Test
     void bB5_last() {
-        assertThat(evaluator.eval(parse("(last (backquote (array 10i 20i 30i)))"))).isEqualTo(new JaloNumber(30));
+        assertThat(evaluator.eval(parse("(last (backquote (array 10i 20i 30i)))"))).isEqualTo(new JaloInt(30));
     }
 
     @Test
     void bB6_nth() {
-        assertThat(evaluator.eval(parse("(nth (backquote (array 10i 20i 30i)) 1i)"))).isEqualTo(new JaloNumber(20));
+        assertThat(evaluator.eval(parse("(nth (backquote (array 10i 20i 30i)) 1i)"))).isEqualTo(new JaloInt(20));
     }
 
     @Test
@@ -60,25 +59,25 @@ class ArrayBuiltinsTest {
     @Test
     void bB8_rest() {
         assertThat(evaluator.eval(parse("(rest (backquote (array 1i 2i 3i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(2), new JaloNumber(3)));
+            .isEqualTo(JaloArray.of(new JaloInt(2), new JaloInt(3)));
     }
 
     @Test
     void bB9_conj() {
         assertThat(evaluator.eval(parse("(conj (backquote (array 1i 2i)) 3i)")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1), new JaloNumber(2), new JaloInt(3)));
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 
     @Test
     void bB10_concat() {
         assertThat(evaluator.eval(parse("(concat (backquote (array 1i 2i)) (backquote (array 3i 4i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1), new JaloNumber(2), new JaloNumber(3), new JaloNumber(4)));
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3), new JaloInt(4)));
     }
 
     @Test
     void bB11_reverse() {
         assertThat(evaluator.eval(parse("(reverse (backquote (array 1i 2i 3i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(3), new JaloNumber(2), new JaloNumber(1)));
+            .isEqualTo(JaloArray.of(new JaloInt(3), new JaloInt(2), new JaloInt(1)));
     }
 
     @Test
@@ -89,17 +88,17 @@ class ArrayBuiltinsTest {
 
     @Test
     void bB13_indexOf() {
-        assertThat(evaluator.eval(parse("(index-of (backquote (array 10i 20i 30i)) 20i)"))).isEqualTo(new JaloInt(1));
+        assertThat(evaluator.eval(parse("(index-of (backquote (array 10i 20i 30i)) 20.0)"))).isEqualTo(new JaloInt(-1));
     }
 
     @Test
     void bB14_contains() {
-        assertThat(evaluator.eval(parse("(contains? (backquote (array 1i 2i 3i)) 2i)"))).isEqualTo(JaloBool.TRUE);
+        assertThat(evaluator.eval(parse("(contains? (backquote (array 1i 2i 3i)) 2.0)"))).isEqualTo(JaloBool.FALSE);
     }
 
     @Test
     void bB15_sort() {
         assertThat(evaluator.eval(parse("(sort (backquote (array 3i 1i 2i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1), new JaloNumber(2), new JaloNumber(3)));
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 }

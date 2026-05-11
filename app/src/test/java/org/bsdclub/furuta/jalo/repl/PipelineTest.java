@@ -3,6 +3,7 @@ package org.bsdclub.furuta.jalo.repl;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloNull;
 import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloString;
@@ -14,29 +15,29 @@ class PipelineTest {
 
     @Test
     void p1_additionSuccess() {
-        assertSuccessValue("(+ 1 2)", new JaloNumber(3.0));
+        assertSuccessValue("(+ 1 2)", new JaloInt(3));
     }
 
     @Test
     void p2_defAccumulation() {
         assertSuccessValue("(def x 10)", JaloNull.INSTANCE);
-        assertSuccessValue("(* x 2)", new JaloNumber(20.0));
+        assertSuccessValue("(* x 2)", new JaloInt(20));
     }
 
     @Test
     void p3_fnDefinitionAndApply() {
         assertSuccessValue("(def f (fn [a] (* a a)))", JaloNull.INSTANCE);
-        assertSuccessValue("(f 7)", new JaloNumber(49.0));
+        assertSuccessValue("(f 7)", new JaloInt(49));
     }
 
     @Test
     void p4_localBinding() {
-        assertSuccessValue("(let [a 5 b 3] (- a b))", new JaloNumber(2.0));
+        assertSuccessValue("(let [a 5 b 3] (- a b))", new JaloInt(2));
     }
 
     @Test
     void p5_effectHandling() {
-        assertSuccessValue("(let [v 0] (handle (raise (quote err) 42) [(quote err) v v]))", new JaloNumber(42.0));
+        assertSuccessValue("(let [v 0] (handle (raise (quote err) 42) [(quote err) v v]))", new JaloInt(42));
     }
 
     @Test
@@ -51,7 +52,7 @@ class PipelineTest {
 
     @Test
     void p8_arrayEval() {
-        assertSuccessValue("(quote [1 2 3])", JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0)));
+        assertSuccessValue("(quote [1 2 3])", JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 
     @Test

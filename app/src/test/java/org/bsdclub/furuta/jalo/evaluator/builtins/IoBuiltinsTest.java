@@ -20,7 +20,7 @@ class IoBuiltinsTest {
 
     @Test
     void toJson() {
-        assertThat(evaluator.eval(parse("(to-json (backquote (map (\"a\" 1) (\"b\" (array 2 3)))))")))
+        assertThat(evaluator.eval(parse("(to-json (backquote (map (\"a\" 1.0) (\"b\" (array 2.0 3.0)))))")))
             .isEqualTo(new JaloString("{\"a\":1.0,\"b\":[2.0,3.0]}"));
     }
 

@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.bsdclub.furuta.jalo.evaluator.Evaluator;
 import org.bsdclub.furuta.jalo.value.JaloArray;
-import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloMap;
 import org.bsdclub.furuta.jalo.value.JaloString;
+import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.lexer.Lexer;
 import org.bsdclub.furuta.jalo.parser.Parser;
 import org.junit.jupiter.api.Test;
@@ -29,7 +29,7 @@ class MapBuiltinsTest {
     @Test
     void bB17_dissoc() {
         assertThat(evaluator.eval(parse("(dissoc (backquote (map (\"a\" 1i) (\"b\" 2i))) (quote \"a\"))")))
-            .isEqualTo(JaloMap.empty().put("b", new JaloNumber(2)));
+            .isEqualTo(JaloMap.empty().put("b", new JaloInt(2)));
     }
 
     @Test
@@ -49,14 +49,14 @@ class MapBuiltinsTest {
         assertThat(value).isInstanceOf(JaloArray.class);
         JaloArray arr = (JaloArray) value;
         assertThat(arr.size()).isEqualTo(2);
-        assertThat(arr.get(0)).isIn(new JaloNumber(1), new JaloNumber(2));
-        assertThat(arr.get(1)).isIn(new JaloNumber(1), new JaloNumber(2));
+        assertThat(arr.get(0)).isIn(new JaloInt(1), new JaloInt(2));
+        assertThat(arr.get(1)).isIn(new JaloInt(1), new JaloInt(2));
         assertThat(arr.get(0)).isNotEqualTo(arr.get(1));
     }
 
     @Test
     void bB20_merge() {
         assertThat(evaluator.eval(parse("(merge (backquote (map (\"a\" 1i))) (backquote (map (\"b\" 2i))))")))
-            .isEqualTo(JaloMap.empty().put("a", new JaloNumber(1)).put("b", new JaloNumber(2)));
+            .isEqualTo(JaloMap.empty().put("a", new JaloInt(1)).put("b", new JaloInt(2)));
     }
 }

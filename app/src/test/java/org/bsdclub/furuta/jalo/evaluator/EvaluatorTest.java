@@ -27,7 +27,7 @@ class EvaluatorTest {
 
     @Test void eA1_evalNullLiteral() { assertThat(evaluator.eval(parse("#null"))).isEqualTo(JaloNull.INSTANCE); }
     @Test void eA2_evalTrueLiteral() { assertThat(evaluator.eval(parse("#true"))).isEqualTo(JaloBool.TRUE); }
-    @Test void eA3_evalNumberLiteral() { assertThat(evaluator.eval(parse("42"))).isEqualTo(new JaloNumber(42.0)); }
+    @Test void eA3_evalNumberLiteral() { assertThat(evaluator.eval(parse("42"))).isEqualTo(new JaloInt(42)); }
 
     @Test
     void eA4_unboundVariableThrowsEffectSignal() {
@@ -43,18 +43,18 @@ class EvaluatorTest {
     @Test
     void eA5_defPersistsInGlobalEnvironment() {
         assertThat(evaluator.eval(parse("(def x 42)"))).isEqualTo(JaloNull.INSTANCE);
-        assertThat(evaluator.eval(parse("x"))).isEqualTo(new JaloNumber(42.0));
+        assertThat(evaluator.eval(parse("x"))).isEqualTo(new JaloInt(42));
     }
 
-    @Test void eA6_letParallelBinding() { assertThat(evaluator.eval(parse("(let [x 1] x)"))).isEqualTo(new JaloNumber(1.0)); }
-    @Test void eA7_letStarSequentialBinding() { assertThat(evaluator.eval(parse("(let* [x 1 y x] y)"))).isEqualTo(new JaloNumber(1.0)); }
-    @Test void eA8_letrecMutualRecursionBase() { assertThat(evaluator.eval(parse("(letrec [f (fn [n] (if (= n 0) 0 (f (- n 1))))] (f 3))"))).isEqualTo(new JaloNumber(0.0)); }
-    @Test void eA9_ifTrueBranch() { assertThat(evaluator.eval(parse("(if #true 1 2)"))).isEqualTo(new JaloNumber(1.0)); }
-    @Test void eA10_ifFalseBranch() { assertThat(evaluator.eval(parse("(if #false 1 2)"))).isEqualTo(new JaloNumber(2.0)); }
-    @Test void eA11_functionApplicationWithLet() { assertThat(evaluator.eval(parse("(let [f (fn [x] (* x 2))] (f 3))"))).isEqualTo(new JaloNumber(6.0)); }
-    @Test void eA12_closureCapturesOuterBinding() { assertThat(evaluator.eval(parse("(let [x 10] ((fn [y] (+ x y)) 5))"))).isEqualTo(new JaloNumber(15.0)); }
+    @Test void eA6_letParallelBinding() { assertThat(evaluator.eval(parse("(let [x 1] x)"))).isEqualTo(new JaloInt(1)); }
+    @Test void eA7_letStarSequentialBinding() { assertThat(evaluator.eval(parse("(let* [x 1 y x] y)"))).isEqualTo(new JaloInt(1)); }
+    @Test void eA8_letrecMutualRecursionBase() { assertThat(evaluator.eval(parse("(letrec [f (fn [n] (if (= n 0) 0 (f (- n 1))))] (f 3))"))).isEqualTo(new JaloInt(0)); }
+    @Test void eA9_ifTrueBranch() { assertThat(evaluator.eval(parse("(if #true 1 2)"))).isEqualTo(new JaloInt(1)); }
+    @Test void eA10_ifFalseBranch() { assertThat(evaluator.eval(parse("(if #false 1 2)"))).isEqualTo(new JaloInt(2)); }
+    @Test void eA11_functionApplicationWithLet() { assertThat(evaluator.eval(parse("(let [f (fn [x] (* x 2))] (f 3))"))).isEqualTo(new JaloInt(6)); }
+    @Test void eA12_closureCapturesOuterBinding() { assertThat(evaluator.eval(parse("(let [x 10] ((fn [y] (+ x y)) 5))"))).isEqualTo(new JaloInt(15)); }
 
-    @Test void eB1_handleCatchesMatchingTag() { assertThat(evaluator.eval(parse("(handle (raise (quote x) 1) [(quote x) v v])"))).isEqualTo(new JaloNumber(1.0)); }
+    @Test void eB1_handleCatchesMatchingTag() { assertThat(evaluator.eval(parse("(handle (raise (quote x) 1) [(quote x) v v])"))).isEqualTo(new JaloInt(1)); }
 
     @Test
     void eB2_raiseWithoutHandlePropagates() {
@@ -73,13 +73,13 @@ class EvaluatorTest {
     @Test
     void eB4_nestedInnerHandleWins() {
         assertThat(evaluator.eval(parse("(handle (handle (raise (quote x) 1) [(quote x) v v]) [(quote x) v 999])")))
-            .isEqualTo(new JaloNumber(1.0));
+            .isEqualTo(new JaloInt(1));
     }
 
     @Test
     void eB5_nestedOuterHandleCatchesRethrow() {
         assertThat(evaluator.eval(parse("(handle (handle (raise (quote y) 1) [(quote x) v v]) [(quote y) v 999])")))
-            .isEqualTo(new JaloNumber(999.0));
+            .isEqualTo(new JaloInt(999));
     }
     @Test void eB6_errorBuiltinEffectCaught() { assertThat(evaluator.eval(parse("(handle (error (quote msg)) [(quote error) e e])"))).isEqualTo(new JaloString("msg")); }
     @Test
@@ -101,11 +101,11 @@ class EvaluatorTest {
             .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JaloString("y")));
     }
 
-    @Test void eB10_handleWithLexicalValue() { assertThat(evaluator.eval(parse("(handle (let [x 1] (raise (quote x) x)) [(quote x) v v])"))).isEqualTo(new JaloNumber(1.0)); }
+    @Test void eB10_handleWithLexicalValue() { assertThat(evaluator.eval(parse("(handle (let [x 1] (raise (quote x) x)) [(quote x) v v])"))).isEqualTo(new JaloInt(1)); }
 
     @Test
     void letrecVariablesDoNotLeakToGlobal() {
-        assertThat(evaluator.eval(parse("(letrec [hidden 42] hidden)"))).isEqualTo(new JaloNumber(42.0));
+        assertThat(evaluator.eval(parse("(letrec [hidden 42] hidden)"))).isEqualTo(new JaloInt(42));
         assertThatThrownBy(() -> evaluator.eval(parse("hidden")))
             .isInstanceOf(JaloEffectSignal.class)
             .satisfies(ex -> assertThat(((JaloEffectSignal) ex).tag()).isEqualTo(new JaloString("error")));
@@ -116,7 +116,7 @@ class EvaluatorTest {
     void eC2_defThenAdd() {
         evaluator.eval(parse("(def x 1)"));
         evaluator.eval(parse("(def y 2)"));
-        assertThat(evaluator.eval(parse("(+ x y)"))).isEqualTo(new JaloNumber(3.0));
+        assertThat(evaluator.eval(parse("(+ x y)"))).isEqualTo(new JaloInt(3));
     }
 
     @Test
@@ -126,7 +126,7 @@ class EvaluatorTest {
                 parse("(letrec [even? (fn [n] (if (= n 0) #true (odd? (- n 1)))) odd? (fn [n] (if (= n 0) #false (even? (- n 1))))] (even? 4))")))
             .isEqualTo(JaloBool.TRUE);
     }
-    @Test void eC4_addDouble() { assertThat(evaluator.eval(parse("(+ 1 2)"))).isEqualTo(new JaloNumber(3.0)); }
+    @Test void eC4_addDouble() { assertThat(evaluator.eval(parse("(+ 1 2)"))).isEqualTo(new JaloInt(3)); }
     @Test void eC5_addIntLongPromotion() { assertThat(evaluator.eval(parse("(+ 1i 2l)"))).isEqualTo(new JaloLong(3L)); }
     @Test void eC6_addIntDoublePromotion() { assertThat(evaluator.eval(parse("(+ 1i 2.0)"))).isEqualTo(new JaloNumber(3.0)); }
     @Test void eC7_integerDivideByZeroRaisesError() { assertThat(evaluator.eval(parse("(handle (/ 1i 0i) [(quote error) e e])"))).isEqualTo(new JaloString("Division by zero")); }
@@ -141,7 +141,7 @@ class EvaluatorTest {
         assertThat(evaluator.eval(parse("(number? 42)"))).isEqualTo(JaloBool.TRUE);
         assertThat(evaluator.eval(parse("(string? 42)"))).isEqualTo(JaloBool.FALSE);
     }
-    @Test void eC10_typeDouble() { assertThat(evaluator.eval(parse("(type 42)"))).isEqualTo(new JaloString("double")); }
+    @Test void eC10_typeDouble() { assertThat(evaluator.eval(parse("(type 42)"))).isEqualTo(new JaloString("int")); }
     @Test void eC11_typeString() { assertThat(evaluator.eval(parse("(type (quote \"hello\"))"))).isEqualTo(new JaloString("string")); }
     @Test void eC12_integrationHandle() { assertThat(evaluator.eval(parse("(let [x 1i] (handle (/ x 0i) [(quote error) e e]))"))).isEqualTo(new JaloString("Division by zero")); }
 
@@ -178,7 +178,7 @@ class EvaluatorTest {
 
     @Test
     void mA1_backquoteLiteralNumber() {
-        assertThat(evaluator.eval(parse("(backquote 42i)"))).isEqualTo(new JaloNumber(42.0));
+        assertThat(evaluator.eval(parse("(backquote 42i)"))).isEqualTo(new JaloInt(42));
     }
 
     @Test
@@ -205,19 +205,19 @@ class EvaluatorTest {
     @Test
     void mA6_backquoteArrayMixedLiteralAndDollar() {
         assertThat(evaluator.eval(parse("(let [x 5i] (backquote (array 1i (dollar x) 3i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(5.0), new JaloNumber(3.0)));
+            .hasToString(JaloArray.of(new JaloNumber(1.0), new JaloNumber(5.0), new JaloNumber(3.0)).toString());
     }
 
     @Test
     void mA7_backquoteAtSpliceInArray() {
         assertThat(evaluator.eval(parse("(let [arr (backquote (array 2i 3i))] (backquote (array 1i (at arr) 4i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0), new JaloNumber(4.0)));
+            .hasToString(JaloArray.of(new JaloNumber(1.0), new JaloNumber(2.0), new JaloNumber(3.0), new JaloNumber(4.0)).toString());
     }
 
     @Test
     void mA8_backquoteAtSpliceEmptyArray() {
         assertThat(evaluator.eval(parse("(let [arr (backquote (array))] (backquote (array 0i (at arr) 1i)))")))
-            .isEqualTo(JaloArray.of(new JaloNumber(0.0), new JaloNumber(1.0)));
+            .isEqualTo(JaloArray.of(new JaloInt(0), new JaloInt(1)));
     }
 
     @Test
@@ -240,7 +240,7 @@ class EvaluatorTest {
     @Test
     void mA11_backquoteMapWithPercentSplice() {
         assertThat(evaluator.eval(parse("(let [extra (backquote (map (\"a\" 1i)))] (backquote (map (\"b\" 2i) (percent extra))))")))
-            .isEqualTo(JaloMap.empty().put("b", new JaloNumber(2.0)).put("a", new JaloNumber(1.0)));
+            .isEqualTo(JaloMap.empty().put("b", new JaloInt(2)).put("a", new JaloInt(1)));
     }
 
     @Test
@@ -248,8 +248,8 @@ class EvaluatorTest {
         assertThat(evaluator.eval(parse("(backquote (array (map (\"x\" 1i)) (map (\"x\" 2i))))")))
             .isEqualTo(
                 JaloArray.of(
-                    JaloMap.empty().put("x", new JaloNumber(1.0)),
-                    JaloMap.empty().put("x", new JaloNumber(2.0))));
+                    JaloMap.empty().put("x", new JaloInt(1)),
+                    JaloMap.empty().put("x", new JaloInt(2))));
     }
 
     @Test
@@ -260,11 +260,7 @@ class EvaluatorTest {
     @Test
     void q2_evalQuoteShorthandListOfInts() {
         assertThat(evaluator.eval(parse("'(1i 2i 3i)")))
-            .isEqualTo(
-                JaloArray.of(
-                    JaloArray.of(new JaloString("int"), new JaloNumber(1.0)),
-                    JaloArray.of(new JaloString("int"), new JaloNumber(2.0)),
-                    JaloArray.of(new JaloString("int"), new JaloNumber(3.0))));
+            .isEqualTo(JaloArray.of(new JaloInt(1), new JaloInt(2), new JaloInt(3)));
     }
 
     @Test
