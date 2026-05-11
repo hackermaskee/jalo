@@ -376,8 +376,20 @@ jalo のエラー・非局所脱出機構は**代数的エフェクト (軽量�
 | `array?` | `(array? x)` | 配列か |
 | `map?` | `(map? x)` | マップか |
 | `fn?` | `(fn? x)` | 関数か |
+| `pure-json?` | `(pure-json? x)` | `x` が JSON 値モデルに完全適合するか動的判定する。`int` / `long` / `fn` は `#false`。配列・マップは再帰的に検査する。 |
 | `type` | `(type x)` | 型名を文字列で返す (`"null"` / `"boolean"` / `"double"` / `"int"` / `"long"` / `"string"` / `"array"` / `"map"` / `"fn"`) |
 | `boolean` | `(boolean x)` | JavaScript 的真偽値変換: `#null` / `#false` / `0` / `""` / `NaN` / `[]` / `{}` → `#false`、それ以外 → `#true` |
+
+例:
+
+```
+(pure-json? #null)                                                       ; => #true
+(pure-json? 42.0)                                                        ; => #true
+(pure-json? 42i)                                                         ; => #false
+(pure-json? (conj (backquote (array 2.0)) (str-count (quote "a"))))     ; => #false
+(pure-json? (assoc (backquote (map)) (quote "a") (str-count (quote "a")))) ; => #false
+(pure-json? (fn [x] x))                                                  ; => #false
+```
 
 #### 算術
 
