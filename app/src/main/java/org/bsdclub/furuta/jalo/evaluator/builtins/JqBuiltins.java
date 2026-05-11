@@ -3,6 +3,7 @@ package org.bsdclub.furuta.jalo.evaluator.builtins;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -12,11 +13,13 @@ import org.bsdclub.furuta.jalo.evaluator.Environment;
 import org.bsdclub.furuta.jalo.evaluator.Evaluator;
 import org.bsdclub.furuta.jalo.evaluator.JaloEffectSignal;
 import org.bsdclub.furuta.jalo.value.JaloArray;
+import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloBuiltinFunction;
 import org.bsdclub.furuta.jalo.value.JaloFunction;
 import org.bsdclub.furuta.jalo.value.JaloInt;
 import org.bsdclub.furuta.jalo.value.JaloMap;
 import org.bsdclub.furuta.jalo.value.JaloNull;
+import org.bsdclub.furuta.jalo.value.JaloNumber;
 import org.bsdclub.furuta.jalo.value.JaloString;
 import org.bsdclub.furuta.jalo.value.JaloValue;
 
@@ -32,6 +35,82 @@ public final class JqBuiltins {
      * @param evaluator evaluator used when built-ins invoke function values
      */
     public static void registerAll(BuiltinRegistry registry, Evaluator evaluator) {
+        registry.register("add", (args, env) -> {
+            requireArity("add", args, 1);
+            JaloArray arr = requireArray("add", args.get(0));
+            boolean numeric = true;
+            for (int i = 0; i < arr.size(); i++) {
+                if (!(arr.get(i) instanceof JaloNumber || arr.get(i) instanceof JaloInt)) {
+                    numeric = false;
+                    break;
+                }
+            }
+            if (numeric) {
+                double sum = 0;
+                for (int i = 0; i < arr.size(); i++) {
+                    JaloValue v = arr.get(i);
+                    sum += (v instanceof JaloInt n) ? n.value() : ((JaloNumber) v).value();
+                }
+                return Math.rint(sum) == sum ? new JaloInt((int) sum) : new JaloNumber(sum);
+            }
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < arr.size(); i++) sb.append(toSimpleString(arr.get(i)));
+            return new JaloString(sb.toString());
+        });
+        registry.register("sort-by", (args, env) -> {
+            requireArity("sort-by", args, 2);
+            JaloArray arr = requireArray("sort-by", args.get(1));
+            List<JaloValue> list = new ArrayList<>();
+            for (int i = 0; i < arr.size(); i++) list.add(arr.get(i));
+            list.sort(Comparator.comparing(v -> callFn(args.get(0), List.of(v), env, evaluator).toString()));
+            JaloArray out = JaloArray.empty();
+            for (JaloValue v : list) out = out.append(v);
+            return out;
+        });
+        registry.register("unique", (args, env) -> {
+            requireArity("unique", args, 1);
+            JaloArray arr = requireArray("unique", args.get(0));
+            Set<JaloValue> seen = new LinkedHashSet<>();
+            JaloArray out = JaloArray.empty();
+            for (int i = 0; i < arr.size(); i++) {
+                JaloValue item = arr.get(i);
+                if (seen.add(item)) out = out.append(item);
+            }
+            return out;
+        });
+        registry.register("to-entries", (args, env) -> {
+            requireArity("to-entries", args, 1);
+            JaloMap map = requireMap("to-entries", args.get(0));
+            JaloArray out = JaloArray.empty();
+            for (Map.Entry<String, JaloValue> e : map.entries().entrySet()) {
+                out = out.append(JaloMap.empty().put("key", new JaloString(e.getKey())).put("value", e.getValue()));
+            }
+            return out;
+        });
+        registry.register("from-entries", (args, env) -> {
+            requireArity("from-entries", args, 1);
+            JaloArray arr = requireArray("from-entries", args.get(0));
+            JaloMap out = JaloMap.empty();
+            for (int i = 0; i < arr.size(); i++) {
+                JaloMap ent = requireMap("from-entries", arr.get(i));
+                JaloValue keyValue = ent.get("key");
+                if (!(keyValue instanceof JaloString key)) {
+                    throw error("from-entries: key must be string");
+                }
+                out = out.put(key.value(), ent.get("value"));
+            }
+            return out;
+        });
+        registry.register("with-entries", (args, env) -> {
+            requireArity("with-entries", args, 2);
+            JaloArray entries = toEntries(args.get(1));
+            // Inline to-entries / map / from-entries composition.
+            JaloArray mapped = JaloArray.empty();
+            for (int i = 0; i < entries.size(); i++) {
+                mapped = mapped.append(callFn(args.get(0), List.of(entries.get(i)), env, evaluator));
+            }
+            return fromEntries(mapped);
+        });
         registry.register("recurse", (args, env) -> {
             requireArity("recurse", args, 1);
             JaloArray out = JaloArray.empty();
@@ -80,6 +159,30 @@ public final class JqBuiltins {
         });
         registry.register("min-by", (args, env) -> byExtreme("min-by", args, env, evaluator, true));
         registry.register("max-by", (args, env) -> byExtreme("max-by", args, env, evaluator, false));
+        registry.register("not", (args, env) -> {
+            requireArity("not", args, 1);
+            return truthy(args.get(0)) ? JaloBool.FALSE : JaloBool.TRUE;
+        });
+        registry.register("any", (args, env) -> {
+            requireArity("any", args, 2);
+            JaloArray arr = requireArray("any", args.get(1));
+            for (int i = 0; i < arr.size(); i++) {
+                if (truthy(callFn(args.get(0), List.of(arr.get(i)), env, evaluator))) {
+                    return JaloBool.TRUE;
+                }
+            }
+            return JaloBool.FALSE;
+        });
+        registry.register("all", (args, env) -> {
+            requireArity("all", args, 2);
+            JaloArray arr = requireArray("all", args.get(1));
+            for (int i = 0; i < arr.size(); i++) {
+                if (!truthy(callFn(args.get(0), List.of(arr.get(i)), env, evaluator))) {
+                    return JaloBool.FALSE;
+                }
+            }
+            return JaloBool.TRUE;
+        });
         registry.register("at-csv", (args, env) -> toCsvLike("at-csv", args, ","));
         registry.register("at-tsv", (args, env) -> toCsvLike("at-tsv", args, "\t"));
         registry.register("at-html", (args, env) -> {
@@ -99,6 +202,28 @@ public final class JqBuiltins {
             requireArity("at-json", args, 1);
             return new JaloString(args.get(0).toString());
         });
+    }
+
+    private static JaloValue fromEntries(JaloArray arr) {
+        JaloMap out = JaloMap.empty();
+        for (int i = 0; i < arr.size(); i++) {
+            JaloMap ent = requireMap("with-entries", arr.get(i));
+            JaloValue keyValue = ent.get("key");
+            if (!(keyValue instanceof JaloString key)) {
+                throw error("with-entries: key must be string");
+            }
+            out = out.put(key.value(), ent.get("value"));
+        }
+        return out;
+    }
+
+    private static JaloArray toEntries(JaloValue value) {
+        JaloMap map = requireMap("to-entries", value);
+        JaloArray out = JaloArray.empty();
+        for (Map.Entry<String, JaloValue> e : map.entries().entrySet()) {
+            out = out.append(JaloMap.empty().put("key", new JaloString(e.getKey())).put("value", e.getValue()));
+        }
+        return out;
     }
 
     private static JaloValue byExtreme(String name, List<JaloValue> args, Environment env, Evaluator evaluator, boolean min) {
@@ -196,11 +321,22 @@ public final class JqBuiltins {
         paths.add(prefix);
     }
 
+    private static boolean truthy(JaloValue v) {
+        return !(v == JaloNull.INSTANCE || JaloBool.FALSE.equals(v));
+    }
+
     private static JaloArray requireArray(String name, JaloValue value) {
         if (value instanceof JaloArray arr) {
             return arr;
         }
         throw error(name + ": expected array");
+    }
+
+    private static JaloMap requireMap(String name, JaloValue value) {
+        if (value instanceof JaloMap map) {
+            return map;
+        }
+        throw error(name + ": expected map");
     }
 
     private static JaloValue callFn(JaloValue f, List<JaloValue> args, Environment env, Evaluator evaluator) {
