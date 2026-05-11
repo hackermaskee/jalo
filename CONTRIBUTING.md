@@ -266,7 +266,15 @@ gh api \
    `Settings → Branches → main rule Edit` で `Require approvals` を `0` に変更。
 3. 家老 pane から直接変更してはならない。main 保護設定の実施権限は殿のみ。
 
-## 8. トラブルシュート
+## 8. バージョン bump 手順
+
+- 言語仕様変更を含む PR では、バージョン bump を必須とする。
+- PR description に、bump 種別を明記すること。
+  - 軽微な変更: `y` bump
+  - 重大な変更: `x` bump
+- PR review 時、軍師は bump の妥当性 (変更内容と bump 種別の整合) を確認する。
+
+## 9. トラブルシュート
 (a) 家老 pane で git push 失敗（ssh-agent 未ロード）:
 ```bash
 ssh-add -l
@@ -279,7 +287,7 @@ ssh-add ~/.ssh/id_ed25519
 (c) 軍師 review timeout:
 - 4 分後自動 /clear → inbox 再処理
 
-## 9. 受入基準 (documentation-structured-tech-guide スキル)
+## 10. 受入基準 (documentation-structured-tech-guide スキル)
 - [ ] 4 層役割表が正確に記載されている
 - [ ] PR フロー通知コマンド例 (a)〜(d) が全て含まれている
 - [ ] git push 例外規定セクションが MEMORY.md 整合を明記
