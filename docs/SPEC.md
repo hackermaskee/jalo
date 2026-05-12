@@ -738,15 +738,126 @@ JSON モデル上での表現:
 
 ## 6. jq 互換性
 
-jalo は jq との互換性を付加価値として持つ。
+> For compatibility status matrix, see [docs/JQ_COMPAT_STATUS.md](JQ_COMPAT_STATUS.md).
 
-- jq プログラムをパースして JSON モデル AST を生成し、jalo で評価すると同等の動作をする
-- すべての jq 機能を網羅する必要はなく、代表的なフィルタ機能を優先する
-- jq プリミティブは jalo ビルトインでなく、jalo で定義されたライブラリとして実装してよい
-- jq 構文上の多義的記号 (例: `[]`) は、AST 上では別ノードとして区別する
-- 現版は jq フィルタを jalo AST へトランスパイルする方式を採用する
-- マクロ実装導入後 (1.0+) に、トランスパイル方式の再検討を行う
-- 実装済み範囲は `docs/JQ_COMPAT_STATUS.md` で管理する
+### 6.1 Overview
+
+jalo は jq フィルタのサブセットをトランスパイル方式でサポートする。実装は 3 コンポーネントで構成される:
+
+- **`JqParser`** — jq フィルタ文字列を jalo S 式 AST に変換するトランスパイラ
+- **`JqRuntime`** — `JqLexer` → `JqParser` → `Evaluator` を束ねる実行エントリポイント。入力値を `x` として環境にバインドする
+- **`JqBuiltins`** — (予定) jq セマンティクスのランタイムサポート関数群
+
+**対応状況**: 25 テストケース中 14 件対応。5 件 (T-019..T-023) は `JqParser.transpile()` 経路未実装。
+
+**使用方法**:
+
+- CLI jq モード: `jalo -j '<filter>' [<json-file>]` (§7.4 参照)
+- `-c` コンパクト出力、`-n` / `--null-input` オプション
+- `.jq` 拡張子ファイルは自動的に jq モードで処理
+- Reader macro: `#jq(...)` (cmd_423 予定)
+
+### 6.2 Identity and Field Access
+
+トランスパイル時の入力値シンボルはデフォルト `"x"`。`JqRuntime.eval()` が入力値を `x` として束縛する。
+
+| jq 構文 | jalo 変換先 (S 式) | 備考 |
+|---------|-------------------|------|
+| `.` | `x` | 現在の入力値をそのまま返す |
+| `.foo` | `(get-in x (quasiquote (array "foo")))` | 単一フィールドアクセス |
+| `.foo.bar` | `(get-in x (quasiquote (array "foo.bar")))` | ドット連結文字列を単一キーとして扱う |
+| `.foo?` | `(get-in x (quasiquote (array "foo?")))` | `?` はキー文字列の一部として扱われる |
+| `$name` | `name` | 変数参照; `$` プレフィックスを除去した識別子シンボル |
+
+> **⚠️ Difference from jq**: `.foo.bar` in jalo performs a single key lookup with
+> the literal key `"foo.bar"`, not a two-step nested path traversal.
+> For nested access use `(get-in x ["foo" "bar"])` or chain `get-in` calls.
+
+### 6.3 Path Indexing
+
+| jq 構文 | jalo 変換先 (S 式) | 備考 |
+|---------|-------------------|------|
+| `.[0]` | `(nth x 0)` | 整数インデックスアクセス (JaloInt リテラル) |
+| `.[]` | `(identity x)` | イテレータ; 入力配列をそのまま返す |
+| `.foo[]` | `(get-in x (quasiquote (array "foo[]")))` | フィールドとイテレータをドット連結キーとして扱う |
+| `.[2:4]` | 📋 未対応 | スライス (T-006); §6.9 参照 |
+
+> **⚠️ Differences from jq**:
+> - `.[]` in jalo returns the input unchanged (identity); array/object iteration is not implemented.
+> - `.foo?` is not an optional accessor — `?` is treated as part of the literal key name.
+
+### 6.4 Pipe and Comma
+
+| jq 構文 | jalo 変換先 (S 式) | 備考 |
+|---------|-------------------|------|
+| `A \| B` | `(let [x <A>] <B>)` | 左辺の結果を `x` に束縛して右辺を評価 |
+| `A , B` | 📋 未対応 | シーケンス生成 (複数値出力) |
+
+### 6.5 Array and Object Construction
+
+| jq 構文 | jalo 変換先 (S 式) | 備考 |
+|---------|-------------------|------|
+| `[.]` | `(quasiquote (array x))` | 入力値を 1 要素配列にラップ |
+| `[.foo, .bar]` | 📋 未対応 | 複数式の配列構築 (T-010); §6.9 参照 |
+| `{name: .foo}` | 📋 未対応 | オブジェクト構築 (T-011); §6.9 参照 |
+
+### 6.6 Built-in Operations
+
+| jq 構文 | jalo 変換先 (S 式) | 備考 |
+|---------|-------------------|------|
+| `map(expr)` | `(map (fn [v] <expr'>) x)` | `expr` 内の `.` は `v` にバインドして変換 |
+| `select(expr)` | `(filter (fn [v] <expr'>) x)` | `expr` 内の `.` は `v` にバインドして変換 |
+| `length` | `(count x)` | 配列長 / マップエントリ数 |
+| `A and B` | `(and <A> <B>)` | 論理積 |
+| `A or B` | `(or <A> <B>)` | 論理和 |
+| `A > B` | `(> <A> <B>)` | 大なり比較 |
+| `if C then T else E end` | `(if <C> <T> <E>)` | 条件式 |
+| `. as [$a, $b] \| body` | `(let [a (nth x 0) b (nth x 1)] <body>)` | 配列デストラクチャリング (2 要素固定) |
+| `. as {key: $name} \| body` | `(let [name (get-in x (quasiquote (array "key")))] <body>)` | マップデストラクチャリング (1 フィールド) |
+| `"string"` | `(quote "string")` | 文字列リテラル |
+| `42` | `42` | 整数リテラル (JaloInt) |
+
+### 6.7 @format Encodings
+
+`@X` 形式は `(at-X x)` に変換される。変換規則: `@` → `at-`、`_` → `-`。
+
+| jq 構文 | jalo 変換先 (S 式) |
+|---------|--------------------|
+| `@base64` | `(at-base64 x)` |
+| `@uri` | `(at-uri x)` |
+| `@csv` | `(at-csv x)` |
+| `@tsv` | `(at-tsv x)` |
+| `@html` | `(at-html x)` |
+| `@json` | `(at-json x)` |
+
+### 6.8 has / in
+
+jq の `has` / `in` はトランスパイラ未実装。jalo の `contains?` で代替可能:
+
+| jq 構文 | jalo 代替 |
+|---------|-----------|
+| `has("key")` | `(contains? x "key")` |
+| `"key" \| in(obj)` | `(contains? obj "key")` |
+
+### 6.9 Unimplemented Constructs
+
+以下は `JqParser.transpile()` 経路では未実装。jalo 標準関数で代替できる。
+
+| T# | jq 構文 | 状態 | jalo 代替 |
+|----|---------|------|-----------|
+| T-006 | `.[2:4]` | 📋 transpiler 未対応 | `(subvec x 2 4)` |
+| T-010 | `[.foo, .bar]` | 📋 transpiler 未対応 | `(quasiquote (array (get-in x ...) (get-in x ...)))` |
+| T-011 | `{name: .foo, age: .bar}` | 📋 transpiler 未対応 | 直接 jalo AST で `assoc` / `quasiquote` を使って構築 |
+| T-015 | `map(. * 2)` | 📋 transpiler 未対応 | `(map (fn [v] (* v 2)) x)` |
+| T-017 | `keys` | 📋 transpiler 未対応 | `(keys x)` |
+| T-018 | `values` | 📋 transpiler 未対応 | `(vals x)` |
+| T-019 | `to_entries` | 📋 transpiler 未対応 | `(entries x)` ※ kebab-case builtin (to-entries 等) は jalo 標準構文で呼出可 |
+| T-020 | `from_entries` | 📋 transpiler 未対応 | `(from-entries x)` ※ kebab-case builtin (from-entries 等) は jalo 標準構文で呼出可 |
+| T-021 | `group_by(.type)` | 📋 transpiler 未対応 | `(group-by (fn [v] (get-in v (quasiquote (array "type")))) x)` ※ kebab-case builtin (group-by 等) は jalo 標準構文で呼出可 |
+| T-022 | `unique` | 📋 transpiler 未対応 | `(distinct x)` ※ kebab-case builtin (unique 等) は jalo 標準構文で呼出可 |
+| T-023 | `sort_by(.foo)` | 📋 transpiler 未対応 | `(sort-by (fn [v] (get-in v (quasiquote (array "foo")))) x)` ※ kebab-case builtin (sort-by 等) は jalo 標準構文で呼出可 |
+| @base64d | 📋 | JqBuiltins.java 未登録 | — |
+| @text | 📋 | JqBuiltins.java 未登録 | — |
 
 ## 7. REPL & CLI
 
