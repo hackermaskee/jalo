@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-12
+
+### Documentation
+
+- SPEC.md §6: Add jq→jalo AST conversion rules for 14 supported constructs
+- SPEC.md §6.9: Add unimplemented constructs list (T-019..T-023) with jalo alternatives
+- JQ_COMPAT_STATUS.md: Correct T-019..T-023 status from ✅ to 📋 (transpiler path missing)
+- Add bidirectional links between SPEC.md §6 and JQ_COMPAT_STATUS.md
+
 ## [0.5.0] - 2026-05-12
 
 ### Added
