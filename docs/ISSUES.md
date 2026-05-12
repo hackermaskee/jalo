@@ -55,8 +55,8 @@
 
 ## I-08: 末尾呼び出し最適化 (TCO)
 
-**状態**: 未設計 (第 1 版スコープ外)  
-**内容**: 第 1 版では TCO を実装しない。深い再帰はスタックオーバーフローを起こす可能性がある。将来版で検討する。
+**状態**: 資料 cmd_424 で評価中。詳細は `docs/DECISION_TCO.md` (ADR-001) 参照。殿裁可待ち  
+**内容**: 6 オプション (A: explicit recur / B: implicit TCO+trampoline / C: self-tail only / D: CPS / E: delimited continuation / F: no TCO) を評価中。暫定推奨案は Option A (Clojure 方式 explicit recur) または Option F (現状維持)。代数的エフェクト handler との相互作用が最優先評価軸。確定まで深い再帰はスタックオーバーフローを起こす可能性があり、`reduce`/`map` 等の高階関数で代替すること。
 
 ---
 
