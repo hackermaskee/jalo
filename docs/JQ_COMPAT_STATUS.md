@@ -2,18 +2,18 @@
 
 > For detailed conversion rules, see [docs/SPEC.md §6](SPEC.md#6-jq-互換性).
 
-## Compatibility Matrix (Q7: 25 samples) — 14/25 compatible
+## Compatibility Matrix (Q7: 25 samples) — 10/25 fully compatible, 4 partial
 
 | ID | Category | jq feature | PR | Status | Notes |
 |---|---|---|---|---|---|
 | T-001 | basic_path | `.` | PR-A | ✅ | |
 | T-002 | basic_path | `.foo` | PR-A | ✅ | |
-| T-003 | basic_path | `.foo.bar` | PR-A | ✅ | |
-| T-004 | basic_path | `.foo?` | PR-A | ✅ | |
+| T-003 | basic_path | `.foo.bar` | PR-A | 🟡 | single-key lookup; path traversal (.foo.bar) not implemented as nested path |
+| T-004 | basic_path | `.foo?` | PR-A | 🟡 | ? suffix treated as literal key name, not optional-operator |
 | T-005 | array_access | `.[0]` | PR-A | ✅ | |
 | T-006 | array_access | `.[2:4]` | PR-A | 📋 | |
-| T-007 | array_access | `.[]` | PR-A | ✅ | |
-| T-008 | array_access | `.foo[]` | PR-A | ✅ | |
+| T-007 | array_access | `.[]` | PR-A | 🟡 | .[] returns identity; array/object iteration not implemented |
+| T-008 | array_access | `.foo[]` | PR-A | 🟡 | .foo[] treated as literal key 'foo[]', not iterate-over-field |
 | T-009 | pipe | `.foo \| .bar` | PR-A | ✅ | |
 | T-010 | construction | `[.foo, .bar]` | PR-A | 📋 | |
 | T-011 | construction | `{name: .foo, age: .bar}` | PR-A | 📋 | |

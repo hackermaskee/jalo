@@ -769,6 +769,10 @@ jalo は jq フィルタのサブセットをトランスパイル方式でサ�
 | `.foo?` | `(get-in x (quasiquote (array "foo?")))` | `?` はキー文字列の一部として扱われる |
 | `$name` | `name` | 変数参照; `$` プレフィックスを除去した識別子シンボル |
 
+> **⚠️ Difference from jq**: `.foo.bar` in jalo performs a single key lookup with
+> the literal key `"foo.bar"`, not a two-step nested path traversal.
+> For nested access use `(get-in x ["foo" "bar"])` or chain `get-in` calls.
+
 ### 6.3 Path Indexing
 
 | jq 構文 | jalo 変換先 (S 式) | 備考 |
@@ -777,6 +781,10 @@ jalo は jq フィルタのサブセットをトランスパイル方式でサ�
 | `.[]` | `(identity x)` | イテレータ; 入力配列をそのまま返す |
 | `.foo[]` | `(get-in x (quasiquote (array "foo[]")))` | フィールドとイテレータをドット連結キーとして扱う |
 | `.[2:4]` | 📋 未対応 | スライス (T-006); §6.9 参照 |
+
+> **⚠️ Differences from jq**:
+> - `.[]` in jalo returns the input unchanged (identity); array/object iteration is not implemented.
+> - `.foo?` is not an optional accessor — `?` is treated as part of the literal key name.
 
 ### 6.4 Pipe and Comma
 
@@ -816,13 +824,11 @@ jalo は jq フィルタのサブセットをトランスパイル方式でサ�
 | jq 構文 | jalo 変換先 (S 式) |
 |---------|--------------------|
 | `@base64` | `(at-base64 x)` |
-| `@base64d` | `(at-base64d x)` |
 | `@uri` | `(at-uri x)` |
 | `@csv` | `(at-csv x)` |
 | `@tsv` | `(at-tsv x)` |
 | `@html` | `(at-html x)` |
 | `@json` | `(at-json x)` |
-| `@text` | `(at-text x)` |
 
 ### 6.8 has / in
 
@@ -850,6 +856,8 @@ jq の `has` / `in` はトランスパイラ未実装。jalo の `contains?` で
 | T-021 | `group_by(.type)` | 📋 transpiler 未対応 | `(group-by (fn [v] (get-in v (quasiquote (array "type")))) x)` ※ kebab-case builtin (group-by 等) は jalo 標準構文で呼出可 |
 | T-022 | `unique` | 📋 transpiler 未対応 | `(distinct x)` ※ kebab-case builtin (unique 等) は jalo 標準構文で呼出可 |
 | T-023 | `sort_by(.foo)` | 📋 transpiler 未対応 | `(sort-by (fn [v] (get-in v (quasiquote (array "foo")))) x)` ※ kebab-case builtin (sort-by 等) は jalo 標準構文で呼出可 |
+| @base64d | 📋 | JqBuiltins.java 未登録 | — |
+| @text | 📋 | JqBuiltins.java 未登録 | — |
 
 ## 7. REPL & CLI
 
