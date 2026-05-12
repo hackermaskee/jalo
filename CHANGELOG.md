@@ -3,6 +3,21 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-05-12
+
+### Added
+
+- Reader macro `#jq(...)` in standard syntax: lexer tokenization (`HashJqText`) with balanced-parenthesis scanning.
+- Parser integration for `#jq(...)` via `JqParser.transpile(...)`.
+- `JqParseException` and REPL/CLI error kind `JQ_PARSE`.
+- CLI error format for jq transpile failures: `JQ_PARSE error rest-seq line N:M: ...`.
+- Tests for lexer/parser/pipeline/app around `#jq(...)` success and failure paths.
+
+### Changed
+
+- SPEC §5.6 added (`#jq(...)` rules, bracket counting, AST examples, error taxonomy).
+- SPEC §7.3 KIND list now includes `JQ_PARSE`.
+
 ## [0.5.1] - 2026-05-12
 
 ### Documentation

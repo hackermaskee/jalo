@@ -122,6 +122,9 @@ public final class Lexer {
             advance();
             return new Token.HashCurlyOpen(startLine, startCol);
         }
+        if (!isAtEnd() && current() == 'j' && isNext('q') && isNextNext('(')) {
+            return parseHashJqText(startLine, startCol);
+        }
         int literalStart = idx;
         while (!isAtEnd() && Character.isLetter(current())) {
             advance();
@@ -133,6 +136,93 @@ public final class Lexer {
             case "false" -> new Token.False(startLine, startCol);
             default -> throw new LexerException("unknown hash literal: #" + name, startLine, startCol);
         };
+    }
+
+    private Token parseHashJqText(int startLine, int startCol) {
+        advance(); // 'j'
+        advance(); // 'q'
+        advance(); // '('
+
+        StringBuilder sb = new StringBuilder();
+        int depth = 1;
+        boolean inString = false;
+        boolean escaping = false;
+        boolean inComment = false;
+
+        while (!isAtEnd()) {
+            char ch = current();
+
+            if (inComment) {
+                if (ch == '\n' || ch == '\r') {
+                    inComment = false;
+                }
+                sb.append(ch);
+                advance();
+                continue;
+            }
+
+            if (inString) {
+                sb.append(ch);
+                if (escaping) {
+                    escaping = false;
+                    advance();
+                    continue;
+                }
+                if (ch == '\\') {
+                    escaping = true;
+                    advance();
+                    continue;
+                }
+                if (ch == '"') {
+                    inString = false;
+                }
+                if (ch == '\n' || ch == '\r') {
+                    throw new LexerException("unterminated string in #jq(...)", startLine, startCol);
+                }
+                advance();
+                continue;
+            }
+
+            if (ch == '"') {
+                inString = true;
+                sb.append(ch);
+                advance();
+                continue;
+            }
+
+            if (ch == '#') {
+                inComment = true;
+                sb.append(ch);
+                advance();
+                continue;
+            }
+
+            if (ch == '(') {
+                depth++;
+                sb.append(ch);
+                advance();
+                continue;
+            }
+
+            if (ch == ')') {
+                depth--;
+                if (depth == 0) {
+                    advance();
+                    return new Token.HashJqText(sb.toString().trim(), startLine, startCol);
+                }
+                sb.append(ch);
+                advance();
+                continue;
+            }
+
+            sb.append(ch);
+            advance();
+        }
+
+        if (inString) {
+            throw new LexerException("unterminated string in #jq(...)", startLine, startCol);
+        }
+        throw new LexerException("unterminated #jq(...)", startLine, startCol);
     }
 
     private Token parseString(int startLine, int startCol) {
@@ -314,6 +404,14 @@ public final class Lexer {
 
     private boolean hasNext() {
         return idx + 1 < input.length();
+    }
+
+    private boolean isNext(char c) {
+        return idx + 1 < input.length() && input.charAt(idx + 1) == c;
+    }
+
+    private boolean isNextNext(char c) {
+        return idx + 2 < input.length() && input.charAt(idx + 2) == c;
     }
 
     private char peekNext() {

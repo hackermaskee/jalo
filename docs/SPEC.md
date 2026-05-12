@@ -734,6 +734,29 @@ JSON モデル上での表現:
 
 `(quasiquote ...)` / `` ` `` の外側に `$`/`@`/`%` が出現した場合はパースエラー。
 
+### 5.6 Reader macro: `#jq(...)`
+
+`#jq(<filter>)` は jq フィルタ文字列を `JqParser` で transpile し、得られた jalo AST をその場で式として挿入する reader macro である。
+
+- レキサは `#jq(` 開始を検知し、対応する終端 `)` までを 1 トークン `HashJqText` として切り出す。
+- カッコ対応は深さカウントで処理し、`"` 文字列リテラル内および jq コメント `# ...\n` 内の `)` は深さ判定から除外する。
+- EOF 到達時に深さが 0 でない場合は `unterminated #jq(...)` を報告する。
+- `#jq(...)` 内で文字列が閉じない場合は `unterminated string in #jq(...)` を報告する。
+- パーサは `HashJqText(payload, line, col)` を受けたら `new JqParser().transpile(payload)` を実行し、`IllegalArgumentException` は `JqParseException(line,col)` に変換する。
+
+変換例:
+
+| 入力 | 展開後 AST |
+|------|------------|
+| `#jq(.foo)` | `(get-in x (quasiquote (array "foo")))` |
+| `#jq(select(.age > 30))` | `(filter (fn [v] (> (get-in v (quasiquote (array "age"))) 30)) x)` |
+| `#jq(.foo \| .bar)` | `(let [x (get-in x (quasiquote (array "foo")))] (get-in x (quasiquote (array "bar"))))` |
+
+エラー種別:
+
+- レキサ段: `LEX` (`unterminated #jq(...)`, `unterminated string in #jq(...)`)
+- transpile 段: `JQ_PARSE` (`unsupported jq filter: ...` など)
+
 ---
 
 ## 6. jq 互換性
@@ -748,14 +771,14 @@ jalo は jq フィルタのサブセットをトランスパイル方式でサ�
 - **`JqRuntime`** — `JqLexer` → `JqParser` → `Evaluator` を束ねる実行エントリポイント。入力値を `x` として環境にバインドする
 - **`JqBuiltins`** — (予定) jq セマンティクスのランタイムサポート関数群
 
-**対応状況**: 25 テストケース中 14 件対応。5 件 (T-019..T-023) は `JqParser.transpile()` 経路未実装。
+**対応状況**: 10 件完全対応 (✅) + 4 件部分対応 (🟡 partial: T-003/T-004/T-007/T-008) = 14 件カバー。
 
 **使用方法**:
 
 - CLI jq モード: `jalo -j '<filter>' [<json-file>]` (§7.4 参照)
 - `-c` コンパクト出力、`-n` / `--null-input` オプション
 - `.jq` 拡張子ファイルは自動的に jq モードで処理
-- Reader macro: `#jq(...)` (cmd_423 予定)
+- Reader macro: `#jq(...)`
 
 ### 6.2 Identity and Field Access
 
@@ -881,7 +904,7 @@ REPL and CLI print errors using this format:
 ```
 
 If line/column is unavailable, positional segment is omitted.
-`KIND` is one of: `LEX`, `PARSE`, `SYNTAX`, `EFFECT`, `INTERNAL`.
+`KIND` is one of: `LEX`, `PARSE`, `JQ_PARSE`, `SYNTAX`, `EFFECT`, `INTERNAL`.
 
 ### 7.4 CLI Modes
 

@@ -95,6 +95,11 @@ class PipelineTest {
         assertFailureKind("(def a 1)(def b 2)", EvalResult.ErrorKind.PARSE);
     }
 
+    @Test
+    void p16_hashJqParseErrorKind() {
+        assertFailureKind("#jq(.[invalid)", EvalResult.ErrorKind.JQ_PARSE);
+    }
+
     private void assertSuccessValue(String src, JaloValue expected) {
         EvalResult result = pipeline.run(src);
         assertThat(result).isInstanceOf(EvalResult.Success.class);

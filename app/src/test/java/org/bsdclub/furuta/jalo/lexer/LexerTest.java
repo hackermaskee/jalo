@@ -109,4 +109,34 @@ class LexerTest {
             new Token.Quote(1, 1), new Token.NumberInt(42, 1, 2), new Token.Eof(1, 4)
         ));
     }
+
+    @Test void step35_hashJqSimple() {
+        assertThat(lexer.tokenize("#jq(.foo)")).isEqualTo(List.of(
+            new Token.HashJqText(".foo", 1, 1), new Token.Eof(1, 10)
+        ));
+    }
+
+    @Test void step36_hashJqNestedAndStringParen() {
+        assertThat(lexer.tokenize("#jq(select(.name == \")\"))")).isEqualTo(List.of(
+            new Token.HashJqText("select(.name == \")\")", 1, 1), new Token.Eof(1, 26)
+        ));
+    }
+
+    @Test void step37_hashJqCommentParenIgnored() {
+        assertThat(lexer.tokenize("#jq(select(.a) # ) in comment\n | .b)")).isEqualTo(List.of(
+            new Token.HashJqText("select(.a) # ) in comment\n | .b", 1, 1), new Token.Eof(2, 7)
+        ));
+    }
+
+    @Test void step38_hashJqUnterminated() {
+        assertThatThrownBy(() -> lexer.tokenize("#jq(.foo"))
+            .isInstanceOf(LexerException.class)
+            .hasMessageContaining("unterminated #jq(...)");
+    }
+
+    @Test void step39_hashJqUnterminatedString() {
+        assertThatThrownBy(() -> lexer.tokenize("#jq(\"foo)"))
+            .isInstanceOf(LexerException.class)
+            .hasMessageContaining("unterminated string in #jq(...)");
+    }
 }

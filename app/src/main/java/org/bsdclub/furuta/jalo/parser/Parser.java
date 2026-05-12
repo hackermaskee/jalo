@@ -1,6 +1,7 @@
 package org.bsdclub.furuta.jalo.parser;
 
 import java.util.List;
+import org.bsdclub.furuta.jalo.jq.JqParser;
 import org.bsdclub.furuta.jalo.value.JaloArray;
 import org.bsdclub.furuta.jalo.value.JaloBool;
 import org.bsdclub.furuta.jalo.value.JaloInt;
@@ -88,6 +89,7 @@ public final class Parser {
      * @param inQuasiquote true when parsing inside a quasiquote context
      * @return parsed expression
      * @throws ParserException if parsing fails due to invalid syntax
+     * @throws JqParseException if #jq(...) transpilation fails
      */
     private JaloValue parseExpr(boolean inQuasiquote) {
         Token token = peek();
@@ -136,11 +138,75 @@ public final class Parser {
             case Token.LBracket t -> parseStandardArray(Token.LBracket.class, Token.RBracket.class, "]", inQuasiquote);
             case Token.HashBracketOpen t -> parsePatternArray();
             case Token.HashCurlyOpen t -> parsePatternMap();
+            case Token.HashJqText t -> {
+                advance();
+                try {
+                    yield new JqParser().transpile(t.payload());
+                } catch (IllegalArgumentException ex) {
+                    yield transpileHashJqFallback(t, ex);
+                }
+            }
             case Token.LParen t -> parseStandardArray(Token.LParen.class, Token.RParen.class, ")");
             case Token.LBrace t -> parseStandardObject(inQuasiquote);
             case Token.Eof t -> throw new ParserException("Unexpected EOF", t.line(), t.col());
             default -> throw new ParserException("Unexpected token", token.line(), token.col());
         };
+    }
+
+    private JaloValue transpileHashJqFallback(Token.HashJqText token, IllegalArgumentException ex) {
+        String payload = token.payload().trim();
+        int pipeAt = topLevelPipe(payload);
+        if (pipeAt > 0) {
+            String left = payload.substring(0, pipeAt).trim();
+            String right = payload.substring(pipeAt + 1).trim();
+            JaloValue leftAst = new JqParser().transpile(left);
+            if (right.startsWith("select(") && right.endsWith(")")) {
+                String cond = right.substring("select(".length(), right.length() - 1).trim();
+                return JaloArray.of(
+                    new JaloString("let"),
+                    JaloArray.of(new JaloString("x"), leftAst),
+                    JaloArray.of(
+                        new JaloString("filter"),
+                        JaloArray.of(new JaloString("fn"), JaloArray.of(new JaloString("v")), transpileSimpleGtCondition(cond)),
+                        new JaloString("x")));
+            }
+        }
+        throw new JqParseException(ex.getMessage(), token.line(), token.col());
+    }
+
+    private int topLevelPipe(String source) {
+        int depth = 0;
+        for (int i = 0; i < source.length(); i++) {
+            char c = source.charAt(i);
+            if (c == '(' || c == '[' || c == '{') {
+                depth++;
+            } else if (c == ')' || c == ']' || c == '}') {
+                depth--;
+            } else if (c == '|' && depth == 0) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    private JaloValue transpileSimpleGtCondition(String source) {
+        int gtAt = source.indexOf('>');
+        if (gtAt <= 0 || gtAt == source.length() - 1) {
+            throw new IllegalArgumentException("unsupported jq filter: select(" + source + ")");
+        }
+        String left = source.substring(0, gtAt).trim();
+        String right = source.substring(gtAt + 1).trim();
+        if (!left.startsWith(".") || left.length() <= 1 || !right.matches("-?\\d+")) {
+            throw new IllegalArgumentException("unsupported jq filter: select(" + source + ")");
+        }
+        String key = left.substring(1);
+        return JaloArray.of(
+            new JaloString(">"),
+            JaloArray.of(
+                new JaloString("get-in"),
+                new JaloString("v"),
+                JaloArray.of(new JaloString("quasiquote"), JaloArray.of(new JaloString("array"), new JaloString(key)))),
+            new JaloInt(Integer.parseInt(right)));
     }
 
     private JaloArray parseStandardArray(Class<? extends Token> leftType, Class<? extends Token> rightType, String right) {
