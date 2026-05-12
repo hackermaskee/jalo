@@ -1,99 +1,99 @@
-# jalo VISION (Design Philosophy & Long-term Direction)
+# jalo VISION（設計思想と長期方針）
 
-## 1. Mission
+## 1. ミッション
 
-jalo exists to close the gap between JSON's universality and Lisp's composability. JSON has become the lingua franca of structured data, yet the tools available for transforming it—most notably jq—reach the limits of their expressiveness when programs grow beyond simple filters. Conventional Lisp dialects offer rich composition through higher-order functions, closures, and a homoiconic data model, but treat JSON as a foreign encoding rather than a native substrate.
+jalo は、JSON の普遍性と Lisp の合成可能性の間にある隔たりを埋めるために生まれた。JSON はあらゆる構造化データの共通語となったが、その変換ツール群——とりわけ jq——はプログラムが単純なフィルターの域を超えた途端に表現力の限界に達する。従来の Lisp 方言は、高階関数・クロージャ・ホモイコニックなデータモデルによる豊かな合成を提供しているが、JSON をネイティブな基盤ではなく外部エンコーディングとして扱う。
 
-jalo unites these two worlds: it is a pure functional language whose AST *is* the JSON model, making data and code structurally identical. The goal is predictable, composable, effect-aware computation over JSON-native data, in an environment that rewards interactive exploration and reliable automation. jalo targets the space between jq's powerful-but-limited filter model and Clojure's expressive-but-heavy JVM Lisp.
+jalo はこの二つの世界を統合する。jalo は AST が JSON モデルそのものである純粋関数型言語であり、データとコードは構造的に同一である。目標は、対話的探索と確実な自動化の両方を可能にする環境において、JSON ネイティブなデータに対して予測可能・合成可能・エフェクトを意識した計算を行うことである。jalo は jq の強力だが限定的なフィルターモデルと、Clojure の表現力豊かだが重量級の JVM Lisp の間に位置する。
 
-See SPEC.md §1 for language specification and DESIGN.md for implementation decisions.
+言語仕様は SPEC.md §1 を、実装上の決定は DESIGN.md を参照すること。
 
-## 2. Non-Goals
+## 2. 目標外
 
-The following are explicitly out of scope. Recognizing what jalo is *not* is as important as knowing what it is.
+以下は明示的にスコープ外である。jalo でないものを理解することは、jalo であるものと同様に重要である。
 
-- **General-purpose systems programming language.** jalo is optimized for data transformation pipelines and interactive JSON manipulation, not for operating systems, device drivers, or high-throughput network services.
-- **100% jq compatibility.** jalo supports a representative subset of jq filter syntax (see SPEC §6), not a complete superset. Programs that rely on jq-specific edge cases or advanced path expressions may not run unchanged.
-- **JIT compiler or native binary distribution.** Phase 1 is a tree-walking interpreter on the JVM. Phase 2 targets JVM bytecode but remains source-interpreted at the REPL level. AOT compilation to native binaries is not planned.
-- **Macro system in version 1.0.** A hygienic macro facility is on the long-term roadmap (§6), but it is explicitly excluded from the first stable release.
-- **Namespace mechanism in version 1.0.** Module-level namespaces (I-02) are deferred; all definitions share a single global scope in the current version.
-- **Tail-call optimization in version 1.0.** TCO strategy is under active evaluation (I-08; see DECISION_TCO.md). The first release does not guarantee stack-safe tail recursion; deep recursion should be replaced by higher-order iteration functions such as `reduce` and `map`.
-- **Static type system.** jalo is dynamically typed. A gradual or static type layer is a distant future consideration and is not part of the current design.
+- **汎用システムプログラミング言語。** jalo はデータ変換パイプラインと対話的 JSON 操作に最適化されており、オペレーティングシステム・デバイスドライバ・高スループットネットワークサービスを対象としない。
+- **100% jq 互換。** jalo は jq フィルター構文の代表的なサブセットをサポートする（SPEC §6 参照）が、完全なスーパーセットではない。jq 固有のエッジケースや高度なパス式に依存するプログラムは、そのままでは動作しない場合がある。
+- **JIT コンパイラまたはネイティブバイナリ配布。** Phase 1 は JVM 上のツリーウォーキングインタープリタである。Phase 2 では JVM バイトコードを目指すが、REPL レベルではソースインタープリタのままとする。ネイティブバイナリへの AOT コンパイルは計画していない。
+- **バージョン 1.0 でのマクロシステム。** 衛生的なマクロ機能は長期ロードマップ（§6）に含まれるが、最初の安定版リリースからは明示的に除外する。
+- **バージョン 1.0 での名前空間機構。** モジュールレベルの名前空間（I-02）は先送りとする。現バージョンではすべての定義が単一のグローバルスコープを共有する。
+- **バージョン 1.0 での末尾呼び出し最適化（TCO）。** TCO 戦略は現在評価中（I-08、DECISION_TCO.md 参照）。最初のリリースではスタックセーフな末尾再帰を保証しない。深い再帰は `reduce` や `map` といった高階反復関数で代替すること。
+- **静的型システム。** jalo は動的型付けである。段階的型付けや静的型レイヤーは遠い将来の検討事項であり、現在の設計には含まれない。
 
-## 3. Design Philosophy
+## 3. 設計思想
 
-### 3.1 JSON as Homoiconic Data Model
+### 3.1 JSON をホモイコニックなデータモデルとして
 
-Traditional Lisp dialects store programs as cons-cell trees (S-expressions) and data as separate runtime objects. jalo collapses this distinction: *the AST is a JSON value*. Every jalo program is a legal JSON document, and every JSON document is a potential jalo program.
+従来の Lisp 方言はプログラムをコンスセルのツリー（S 式）として、データを独立したランタイムオブジェクトとして格納する。jalo はこの区別を取り払う。*AST は JSON 値そのものである*。すべての jalo プログラムは正当な JSON ドキュメントであり、すべての JSON ドキュメントは潜在的な jalo プログラムである。
 
-This choice has three practical consequences. First, any tool that reads JSON—editors, diff utilities, databases, REST APIs—can inspect or generate jalo source without a dedicated parser. Second, the boundary between "code" and "data" dissolves naturally: `(quote expr)` returns a JSON value structurally identical to the original form. Third, jalo interoperates immediately with the YAML and jq ecosystems because the underlying data model is shared.
+この選択には三つの実際的な帰結がある。第一に、JSON を読み取れるあらゆるツール——エディタ・差分ツール・データベース・REST API——は、専用パーサーなしに jalo ソースを検査・生成できる。第二に、「コード」と「データ」の境界が自然に溶ける。`(quote expr)` は元のフォームと構造的に同一な JSON 値を返す。第三に、jalo は基底データモデルが共有されているため、YAML および jq エコシステムと即座に相互運用できる。
 
-The idea echoes Lisp's original insight about homoiconicity, but grounds it in the contemporary data landscape rather than in 1960s list notation.
+このアイデアは Lisp が 1960 年代のリスト表記ではなく現代のデータランドスケープに根ざしながら、ホモイコニシティに関する本来の洞察を受け継いでいる。
 
-### 3.2 Why Lisp Family
+### 3.2 Lisp ファミリーを選ぶ理由
 
-Given that the problem is composable JSON transformation, why choose a Lisp dialect rather than extending jq itself?
+合成可能な JSON 変換が課題であるとき、なぜ jq を拡張するのではなく Lisp 方言を選ぶのか。
 
-jq is powerful but intentionally minimal. Its filter model—a chain of transformations on a single input—breaks down when programs need named abstractions, closures, or recursive algorithms. Adding those features to jq's formalism requires departing from its core model so thoroughly that the result would no longer be recognizable as jq.
+jq は強力だが意図的にミニマルである。単一入力に対する変換のチェーンというフィルターモデルは、プログラムが名前付き抽象・クロージャ・再帰アルゴリズムを必要とした途端に崩壊する。これらの機能を jq の形式に加えるには、コアモデルから大幅に逸脱する必要があり、結果はもはや jq とは呼べないものになる。
 
-Lisp provides exactly the primitives that jq lacks: first-class functions with lexical closure, a `let`/`fn`/`def` binding system, and a REPL-centric interactive development model. Clojure's idiomatic vocabulary (`let`, `fn`, higher-order sequence operations) proved especially influential on jalo's design, because Clojure demonstrated that a Lisp can feel both functional and practical on a host platform without a native runtime (see DESIGN.md §2.1).
+Lisp は jq が欠く原語をそのまま提供する。レキシカルクロージャを持つファーストクラス関数、`let`/`fn`/`def` による束縛システム、REPL 中心の対話的開発モデルである。Clojure の慣用的な語彙（`let`・`fn`・高階シーケンス操作）は jalo の設計に特に影響を与えた。Clojure が、ネイティブランタイムなしにホストプラットフォーム上で Lisp を実用的かつ機能的に感じさせることを実証したからである（DESIGN.md §2.1 参照）。
 
-The homoiconicity of Lisp also opens the door to a macro system in future versions (§6). Once programs are data, code generation and domain-specific languages become first-class concerns rather than bolt-on metaprogramming.
+Lisp のホモイコニシティは将来のバージョンでのマクロシステム（§6）への道も開く。プログラムがデータであれば、コード生成とドメイン固有言語はボルトオンのメタプログラミングではなくファーストクラスの関心事になる。
 
-### 3.3 Immutable First
+### 3.3 不変性優先
 
-All jalo values are immutable. Lists, maps, and strings created by one expression cannot be modified in place by another. This is enforced at the implementation level via Paguro persistent collections (see DESIGN.md §2.4), not merely by convention.
+すべての jalo の値は不変である。あるひとつの式が生成したリスト・マップ・文字列は、別の式が場所を変えて変更することができない。これは慣習ではなく、Paguro パーシステントコレクション（DESIGN.md §2.4 参照）によって実装レベルで強制される。
 
-Immutability provides referential transparency: if `f(x) = v`, then every occurrence of `f(x)` can be replaced by `v`. This property makes programs easier to reason about, easier to test, and easier to parallelize. It also means that jalo programs are inherently safe to share across contexts in a concurrent pipeline without defensive copying.
+不変性は参照透明性をもたらす。`f(x) = v` であれば、`f(x)` が出現するすべての箇所を `v` に置き換えられる。この性質は、プログラムを理解しやすく・テストしやすく・並列化しやすくする。また jalo プログラムは、防衛的コピーなしに並行パイプラインのコンテキスト間で安全に共有できることを意味する。
 
-### 3.4 Algebraic Effects over Exceptions
+### 3.4 例外ではなく代数的エフェクト
 
-jalo uses algebraic effects—`raise` and `handle`—as its primary mechanism for non-local control flow, rather than the exception hierarchies found in Java or Common Lisp (see DESIGN.md §2.1, SPEC §4.4).
+jalo は Java や Common Lisp の例外階層ではなく、代数的エフェクト——`raise` と `handle`——を非局所的制御フローの主要機構として使う（DESIGN.md §2.1・SPEC §4.4 参照）。
 
-The motivation is twofold. First, jq programs use `error`, `try`, and `catch` to manage failure and alternative paths. A unified effect model can represent all of these patterns in a single, composable abstraction. Second, algebraic effects are *first-class and resumable* in principle: a handler can examine an effect, decide what to do, and resume the suspended computation with a value. This is strictly more general than stack-unwinding exceptions, which discard the continuation unconditionally.
+動機は二つある。第一に、jq プログラムは `error`・`try`・`catch` を使って障害と代替パスを管理する。統一されたエフェクトモデルはこれらすべてのパターンを単一の合成可能な抽象に表現できる。第二に、代数的エフェクトは原則として*ファーストクラスかつ再開可能*である。ハンドラはエフェクトを検査し、何をするかを決定し、値とともに中断された計算を再開できる。これは継続を無条件に廃棄するスタックアンワインド例外より真に汎用的である。
 
-The first version implements *abort-only* effects (SPEC §4.4): a raised effect unwinds the stack to the nearest matching handler, which cannot resume the computation. This is sufficient to model jq's error/try semantics. Full resumable continuations are on the roadmap (§6, I-06), and the current design is intentionally forward-compatible with them.
+最初のバージョンは*中断のみ*のエフェクト（SPEC §4.4）を実装する。発生したエフェクトは最も近い一致するハンドラまでスタックをアンワインドし、ハンドラは計算を再開できない。これは jq の error/try セマンティクスをモデル化するには十分である。完全な再開可能継続はロードマップに含まれており（§6、I-06）、現在の設計は意図的にそれと前方互換である。
 
-## 4. Target Users & Use Cases
+## 4. 対象ユーザー
 
-**Primary user profiles:**
+**主要ユーザープロファイル：**
 
-| User | What they need from jalo |
+| ユーザー | jalo に求めるもの |
 |---|---|
-| jq power users | More expressive transformations: named functions, recursion, closures, reusable filters |
-| Clojure/Lisp developers | A lightweight JVM Lisp with a JSON-native data model and familiar `fn`/`let` vocabulary |
-| Java developers | A scripting language that runs on the JVM without a separate runtime installation |
-| Data engineers | Composable JSON processing pipelines that can be version-controlled and unit-tested |
+| jq パワーユーザー | より表現力豊かな変換：名前付き関数・再帰・クロージャ・再利用可能なフィルター |
+| Clojure/Lisp 開発者 | JSON ネイティブなデータモデルと馴染みある `fn`/`let` の語彙を持つ軽量 JVM Lisp |
+| Java 開発者 | 独立したランタイムインストールなしに JVM 上で動くスクリプト言語 |
+| データエンジニア | バージョン管理とユニットテストが可能な合成可能 JSON 処理パイプライン |
 
-**Representative use cases:**
+**代表的なユースケース：**
 
-1. *JSON log aggregation* — transform, filter, and summarize structured log output with named functions and recursive descent.
-2. *CI/CD pipeline scripting* — manipulate complex JSON payloads from GitHub Actions or Kubernetes manifests with readable, testable scripts.
-3. *API response transformation* — reshape nested JSON structures from external APIs before storing or forwarding them.
-4. *Lisp education* — a small, approachable Lisp whose data model eliminates the barrier for learners already familiar with JSON.
-5. *Interactive data exploration* — REPL-driven prototyping of data transformation logic with immediate feedback.
+1. *JSON ログ集約* — 名前付き関数と再帰的下降により構造化ログを変換・フィルタ・集計する。
+2. *CI/CD パイプラインスクリプト* — GitHub Actions や Kubernetes マニフェストから取得した複雑な JSON ペイロードを可読でテスト可能なスクリプトで操作する。
+3. *API レスポンス変換* — 外部 API からのネストした JSON 構造を格納・転送前に整形する。
+4. *Lisp 教育* — JSON に慣れた学習者への障壁を取り除く、小さく親しみやすい Lisp。データモデルが学習曲線を縮小する。
+5. *対話的データ探索* — 即時フィードバックによるデータ変換ロジックの REPL 駆動プロトタイピング。
 
-## 5. Differentiation
+## 5. 差別化ポイント
 
-The table below positions jalo against the most commonly compared tools. The TCO row reflects the status as of this document; see DECISION_TCO.md for the decision under active review.
+以下の表は、jalo をよく比較される代表的ツールと対比させたものである。TCO の行はこのドキュメント時点の状況を示す。詳細は DECISION_TCO.md を参照。
 
-| Dimension | jq | Clojure | Babashka | Scheme (R7RS) | jalo |
+| 次元 | jq | Clojure | Babashka | Scheme (R7RS) | jalo |
 |---|---|---|---|---|---|
-| Data model | JSON | EDN / Java objects | EDN / Java objects | S-expressions | JSON model (native) |
-| Error handling | `try`/`catch`/`error` | Java exceptions | Java exceptions | `condition`/`handler` | Algebraic effects (`raise`/`handle`) |
-| TCO | n/a (no recursion) | Explicit `recur` | Explicit `recur` | Proper tail recursion (implicit) | See DECISION_TCO.md |
-| Startup cost | Lightweight binary | JVM heavy (~0.5 s+) | GraalVM fast (~50 ms) | Varies | JVM heavy (Phase 1) |
-| JSON nativeness | Native | Requires parsing | Requires parsing | Requires parsing | Native |
-| Macro system | None | Full (hygienic) | Full (via Clojure) | `define-syntax` | Planned (1.0+) |
-| Namespaces | None | Full | Full | `define-library` | Planned (1.0+) |
+| データモデル | JSON | EDN / Java オブジェクト | EDN / Java オブジェクト | S 式 | JSON モデル（ネイティブ） |
+| エラー処理 | `try`/`catch`/`error` | Java 例外 | Java 例外 | `condition`/`handler` | 代数的エフェクト（`raise`/`handle`） |
+| TCO | n/a（再帰なし） | 明示的 `recur` | 明示的 `recur` | 適切な末尾再帰（暗黙） | DECISION_TCO.md 参照 |
+| 起動コスト | 軽量バイナリ | JVM 重量（〜0.5 秒超） | GraalVM 高速（〜50 ms） | 実装依存 | JVM 重量（Phase 1） |
+| JSON ネイティブ | ネイティブ | 要パース | 要パース | 要パース | ネイティブ |
+| マクロシステム | なし | 完全（衛生的） | 完全（Clojure 経由） | `define-syntax` | 計画中（1.0 以降） |
+| 名前空間 | なし | 完全 | 完全 | `define-library` | 計画中（1.0 以降） |
 
-jalo's primary differentiator is the combination of *JSON-native homoiconicity* and *algebraic effects*: no other widely used tool offers both. jq provides JSON nativeness without composability; Clojure provides Lisp composability without JSON nativeness; Scheme provides proper tail recursion and hygienic macros but lacks a JSON-native representation.
+jalo の主要な差別化要因は *JSON ネイティブなホモイコニシティ* と *代数的エフェクト* の組み合わせである。この二つを同時に提供する広く使われるツールは他に存在しない。jq は合成可能性なしに JSON ネイティブ性を提供する。Clojure は JSON ネイティブ性なしに Lisp の合成可能性を提供する。Scheme は適切な末尾再帰と衛生的マクロを提供するが、JSON ネイティブな表現を欠く。
 
-## 6. Long-term Vision
+## 6. 長期ビジョン
 
-- **Algebraic effects with resumable continuations** — lift the Phase 1 abort-only restriction and enable full coroutine and generator patterns (I-06, SPEC §4.4).
-- **TCO strategy decision** — adopt one of the options evaluated in DECISION_TCO.md after receiving project owner sign-off; implement in a subsequent release.
-- **Macro system** — introduce a hygienic macro facility (tentatively `defmacro`) in version 1.0 or later, enabling DSLs and code-generation patterns.
-- **Namespace mechanism** — resolve I-02 to allow multi-file programs with explicit import/export boundaries.
-- **JVM bytecode compiler (Phase 2)** — compile jalo programs to JVM class files, reducing startup cost and enabling optimization passes (see DESIGN.md §1).
-- **`1.0.0` release** — criteria to be decided by consensus (see SPEC §1.2). Prerequisites include a stable language spec, a passing test suite, and resolution of critical open issues.
+- **再開可能継続を持つ代数的エフェクト** — Phase 1 の中断のみ制限を解除し、完全なコルーチンとジェネレータのパターンを可能にする（I-06・SPEC §4.4）。
+- **TCO 戦略の確定** — DECISION_TCO.md で評価されたオプションの一つを、プロジェクトオーナーの承認後に後続リリースで実装する（DECISION_TCO.md 参照）。
+- **マクロシステム** — バージョン 1.0 以降に衛生的マクロ機能（仮称 `defmacro`）を導入し、DSL とコード生成パターンを可能にする。
+- **名前空間機構** — 明示的なインポート／エクスポート境界を持つ複数ファイルプログラムを可能にするために I-02 を解決する。
+- **JVM バイトコードコンパイラ（Phase 2）** — jalo プログラムを JVM クラスファイルにコンパイルし、起動コストを削減して最適化パスを可能にする（DESIGN.md §1 参照）。
+- **`1.0.0` リリース** — 判断基準はコンセンサスにより決定（SPEC §1.2 参照）。前提条件は安定した言語仕様・合格のテストスイート・重大なオープン Issue の解決を含む。
