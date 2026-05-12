@@ -30,6 +30,7 @@ public sealed interface EvalResult permits EvalResult.Success, EvalResult.Failur
     enum ErrorKind {
         LEX,
         PARSE,
+        JQ_PARSE,
         SYNTAX,
         EFFECT,
         INTERNAL

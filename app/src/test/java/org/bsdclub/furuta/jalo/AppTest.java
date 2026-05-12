@@ -40,4 +40,20 @@ class AppTest {
         assertThat(out.toString(StandardCharsets.UTF_8)).isEmpty();
         assertThat(err.toString(StandardCharsets.UTF_8)).contains("PARSE error");
     }
+
+    @Test
+    void a3_evalModeJqParseErrorFormat() {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+
+        int exit = App.run(
+            new String[] {"-e", "#jq(.[invalid)"},
+            new ByteArrayInputStream(new byte[0]),
+            new PrintStream(out, true, StandardCharsets.UTF_8),
+            new PrintStream(err, true, StandardCharsets.UTF_8));
+
+        assertThat(exit).isEqualTo(1);
+        assertThat(out.toString(StandardCharsets.UTF_8)).isEmpty();
+        assertThat(err.toString(StandardCharsets.UTF_8)).contains("JQ_PARSE error rest-seq line 1:1:");
+    }
 }

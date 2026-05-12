@@ -152,4 +152,54 @@ class StandardParserTest {
                     new JaloString("quote"),
                     JaloNull.INSTANCE));
     }
+
+    @Test
+    void c27_hashJqFieldAccess() {
+        assertThat(parse("#jq(.foo)"))
+            .isEqualTo(
+                JaloArray.of(
+                    new JaloString("get-in"),
+                    new JaloString("x"),
+                    JaloArray.of(
+                        new JaloString("quasiquote"),
+                        JaloArray.of(new JaloString("array"), new JaloString("foo")))));
+    }
+
+    @Test
+    void c28_hashJqPipeAndSelect() {
+        assertThat(parse("#jq(.foo | select(.age > 30))"))
+            .isEqualTo(
+                JaloArray.of(
+                    new JaloString("let"),
+                    JaloArray.of(
+                        new JaloString("x"),
+                        JaloArray.of(
+                            new JaloString("get-in"),
+                            new JaloString("x"),
+                            JaloArray.of(
+                                new JaloString("quasiquote"),
+                                JaloArray.of(new JaloString("array"), new JaloString("foo"))))),
+                    JaloArray.of(
+                        new JaloString("filter"),
+                        JaloArray.of(
+                            new JaloString("fn"),
+                            JaloArray.of(new JaloString("v")),
+                            JaloArray.of(
+                                new JaloString(">"),
+                                JaloArray.of(
+                                    new JaloString("get-in"),
+                                    new JaloString("v"),
+                                    JaloArray.of(
+                                        new JaloString("quasiquote"),
+                                        JaloArray.of(new JaloString("array"), new JaloString("age")))),
+                                new JaloInt(30))),
+                        new JaloString("x"))));
+    }
+
+    @Test
+    void c29_hashJqParseError() {
+        assertThatThrownBy(() -> parse("#jq(.[invalid)"))
+            .isInstanceOf(JqParseException.class)
+            .hasMessageContaining("unsupported jq filter");
+    }
 }

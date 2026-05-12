@@ -211,6 +211,11 @@ public final class App {
     }
 
     private static String formatFailure(EvalResult.Failure failure) {
+        if (failure.kind() == EvalResult.ErrorKind.JQ_PARSE) {
+            int line = failure.line().orElse(0);
+            int col = failure.col().orElse(0);
+            return "JQ_PARSE error rest-seq line " + line + ":" + col + ": " + failure.message();
+        }
         StringBuilder sb = new StringBuilder();
         sb.append(failure.kind()).append(" error");
         if (failure.line().isPresent()) {

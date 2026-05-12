@@ -10,6 +10,7 @@ import org.bsdclub.furuta.jalo.lexer.LexerException;
 import org.bsdclub.furuta.jalo.lexer.Token;
 import org.bsdclub.furuta.jalo.parser.Parser;
 import org.bsdclub.furuta.jalo.parser.ParserException;
+import org.bsdclub.furuta.jalo.parser.JqParseException;
 import org.bsdclub.furuta.jalo.syntaxcheck.SyntaxCheckException;
 import org.bsdclub.furuta.jalo.syntaxcheck.SyntaxChecker;
 
@@ -50,6 +51,12 @@ public final class Pipeline {
         } catch (ParserException e) {
             return new EvalResult.Failure(
                 EvalResult.ErrorKind.PARSE,
+                e.getMessage(),
+                OptionalInt.of(e.line()),
+                OptionalInt.of(e.col()));
+        } catch (JqParseException e) {
+            return new EvalResult.Failure(
+                EvalResult.ErrorKind.JQ_PARSE,
                 e.getMessage(),
                 OptionalInt.of(e.line()),
                 OptionalInt.of(e.col()));
