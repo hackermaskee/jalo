@@ -269,7 +269,7 @@ Matthew Flatt et al. による研究実装。phase-level で compile-time / run-
 
 ## 推奨
 
-**推奨: Phase 2 で実装する。Phase 1（incubation 期）は当面マクロ機構なしで継続し、`quasiquote` + reader macro `#jq(...)` で代用する。Phase 2 着手時に 5 Options から確定する。**
+**推奨: Phase 2 で実装する。Phase 1 は当面マクロ機構なしで継続し、`quasiquote` + reader macro `#jq(...)` で代用する。Phase 2 着手時に 5 Options から確定する。**
 
 Phase 1 における jalo のミッション（VISION.md §1）——JSON ネイティブなデータに対して予測可能・合成可能・エフェクトを意識した計算を行う——に対して、マクロ機構なし（当面の状態）は以下の理由で許容される:
 
