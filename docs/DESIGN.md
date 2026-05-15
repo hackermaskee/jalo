@@ -17,37 +17,61 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 | Runtime | 環境・束縛・例外/エフェクト制御 | 実行コンテキスト |
 | Stdlib | 組み込み・jq互換関数群 | ユーザ可視 API |
 
-実装フェーズ:
-
-- Phase 1: ツリー歩行インタプリタ
-- Phase 2: JVM バイトコードコンパイラ（REPL 維持）
-
 想定実装スタック:
 
 - Kotlin/Java on JVM
 - immutable データ構造: Paguro
 - jq 互換ライブラリ群
 
-## 2. 重要な設計判断
+## 2. 実装フェーズ (Implementation Phases)
 
-### 2.1 代数的エフェクト採用
+jalo の実装は二段階のフェーズに分割される。各フェーズはスコープ分割 (どの機能を
+どの段階で実装するか) を定義するものであり、バージョン番号 (`0.x.y` / `1.0.0`) の
+到達条件とは独立した概念である。
+
+### Phase 1 (現行)
+- **方式**: ツリーウォーキングインタプリタ (Java 21 / JVM)
+- **含まれる機能**: SPEC.md 第 1 版で規定された言語コア (JSON モデル AST,
+  代数的エフェクト中断版, 不変データ構造, jq 互換層 §6, パターンマッチ §5)
+- **除外される機能 (Phase 2 以降)**:
+  - JVM バイトコードコンパイラ
+  - 末尾呼び出し最適化 (TCO) — DECISION_TCO.md ADR-001 で評価
+  - 衛生マクロ機構 (`defmacro`) — DECISION_MACRO.md ADR-002 で評価
+  - 名前空間機構 (I-02)
+  - 完全な再開可能継続 (I-06 拡張)
+
+### Phase 2 (計画中)
+- **方式**: JVM バイトコードコンパイラ (REPL レベルはソースインタプリタ維持)
+- **着手前提**: Phase 1 言語仕様の十分な安定 + プロジェクトオーナー判断
+- **設計時の再評価対象**: TCO 実装方式 (Option A〜E) / マクロ機構の衛生性方式 /
+  代数的エフェクト効率実装
+
+### バージョニングとの関係
+Phase 1/2 のスコープ分割は SPEC.md §1.2 「バージョニング規約」とは独立した概念である。
+Phase 2 機能の実装の有無は `1.0.0` 到達の前提条件ではない。`1.0.0` への到達は
+SPEC.md §1.2 の三条件 (仕様安定 / 年単位 deprecation 期間 / 非互換警告機構) のみで
+判定する。
+
+## 3. 重要な設計判断
+
+### 3.1 代数的エフェクト採用
 
 - 典拠: commit `ff49816`「エラー/例外処理として代数的エフェクトを採用」
 - 判断: 例外を言語機能として規定し、`raise`/`handle` を中核機構にする。
 - 理由: jq 互換で必要な error/catch 系フローを統一的に扱える。
 
-### 2.2 REPL 課題
+### 3.2 REPL 課題
 
 - 典拠: commit `9563a8a`「REPL における各種課題に対する定義を追加」
 - 判断: `def` 再定義、`declare`、未定義参照時挙動を設計時点で明文化する。
 - 理由: 対話環境の挙動が未定義だと実装差異が大きくなるため。
 
-### 2.3 パターン処理方式 (backquote / match)
+### 3.3 パターン処理方式 (backquote / match)
 
 - 出所: 旧 `SPEC.md` の `backquote` 実装注釈、`§5` 系のパターン章
 - 判断: `backquote` をパターン構築/分解の統一記法として扱い、`match` 側で静的制約を付与する。
 
-### 2.4 Paguro ライブラリ採用 (immutable データ構造)
+### 3.4 Paguro ライブラリ採用 (immutable データ構造)
 
 - 出所: 旧 `SPEC.md §7.2`
 - 判断: Phase 1 から immutable collection を前提にランタイムを構築する。
@@ -58,22 +82,22 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
   - JsonObject の内部 collection: `PersistentHashMap<String, JsonValue>`
 - ライセンス: Eclipse Public License v1.0 + Apache License 2.0
 
-### 2.5 JVM 例外機構設計 (JaloSignal)
+### 3.5 JVM 例外機構設計 (JaloSignal)
 
 - 出所: 旧 `SPEC.md §4.4 第1版の制約③`
 - 判断: スタックトレースを抑制した `Throwable` サブクラス `JaloSignal(tag, value)` で制御フローを扱う。
 
-### 2.6 Phase 1 引数評価戦略 (左→右、仕様上は不定)
+### 3.6 Phase 1 引数評価戦略 (左→右、仕様上は不定)
 
 - 出所: 旧 `SPEC.md §4.1` 注釈
 - 判断: 仕様は評価順不定を維持しつつ、Phase 1 実装では左→右評価を決定論的に採用。
 
-### 2.7 算術演算子のディスパッチ実装 (型別個別関数)
+### 3.7 算術演算子のディスパッチ実装 (型別個別関数)
 
 - 出所: 旧 `SPEC.md §2.1` 注釈
 - 判断: `int` / `long` / `double` の実装関数を分離し、昇格後に適切な演算子実体へ振り分ける。
 
-### 2.8 P/L 実装プリミティブ区分
+### 3.8 P/L 実装プリミティブ区分
 
 - 出所: 旧 `SPEC.md §4.5` の区分列
 - 判断: 実装管理上は以下の区分を維持する（仕様本文からは分離）。
@@ -83,13 +107,13 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
 | P | JVM ホスト言語実装が必要なプリミティブ |
 | L | jalo で記述可能なライブラリ関数 |
 
-### 2.9 評価ディスパッチ実装方針
+### 3.9 評価ディスパッチ実装方針
 
 - 判断: Java 21 の sealed switch とパターン分岐で `JsonValue` を評価する。
 - 理由: cmd_397/400/401 と同じ分岐様式を保ち、case の漏れをコンパイラに検出させるため。
 - 却下案: Visitor パターンは Java 実装のボイラープレートが増え、Phase 1 の速度を落とすため不採用。
 
-### 2.10 Environment 実装方針
+### 3.10 Environment 実装方針
 
 - 判断: `parent` チェーン + Paguro `PersistentHashMap` (ローカル) + `HashMap` (グローバル) の二層モデルを採用。
 - 理由:
@@ -99,13 +123,13 @@ jalo は言語仕様 (`SPEC.md`) と実装設計 (`docs/DESIGN.md`) を分離し
   - `bind`: 新しいローカル環境を返す (不変)
   - `defineGlobal`: グローバル束縛を更新する (可変)
 
-### 2.11 JaloEffectSignal trade-off
+### 3.11 JaloEffectSignal trade-off
 
 - 判断: `JaloEffectSignal` を `RuntimeException` 継承で実装し、`raise`/`handle` を throw/catch で表現する。
 - 最適化: `fillInStackTrace` override でスタックトレース生成を抑制し、例外コストを実測で約 10x 低減。
 - 却下案: Result/Either 型は Java で伝播のボイラープレートが大きく、Phase 1 では採用しない。
 
-## 3. 初版コーディング時の優先順序
+## 4. 初版コーディング時の優先順序
 
 Phase 1 完成に向けた推奨順序:
 
@@ -125,7 +149,7 @@ Phase 1 完成に向けた推奨順序:
 
 旧 `SPEC.md §7` の実装フェーズ計画を再編し、実装順序に読み替えた。
 
-## 4. 主要モジュール構成 (想定案)
+## 5. 主要モジュール構成 (想定案)
 
 本章は実装開始前の想定案である。初回実装 PR 後に実モジュール構造をもとに更新する。
 
@@ -139,7 +163,7 @@ Phase 1 完成に向けた推奨順序:
 - `stdlib/` — 組み込み関数・jq 互換ライブラリ
 - `syntaxcheck/` — 型検査器
 
-## 5. テスト戦略
+## 6. テスト戦略
 
 ### 5.1 TDD 方針 (t-wada スタイル)
 
@@ -208,7 +232,7 @@ assertThatThrownBy(() -> evaluator.eval(expr_without_handler))
 - 正常系だけでなくエフェクト処理系 (`raise` / `handle`) のケースを必須化
 - REPL の再定義・未定義参照挙動を独立スイートで検証
 
-## 6. SPEC からの移送マップ
+## 7. SPEC からの移送マップ
 
 | 移送元 (SPEC) | 移送先 (DESIGN) | 内容 |
 |---|---|---|

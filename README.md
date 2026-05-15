@@ -6,10 +6,10 @@ jalo is a Lisp dialect whose AST is a JSON model.
 It provides a small but practical command-line runtime with three execution modes:
 interactive REPL, one-shot expression evaluation, and file evaluation.
 
-> ⚠️ **Incubation (v0.4.0)** — jalo is under active development.  
-> Language specifications may change in non-backward-compatible ways.  
-> Programs written against the current version are not guaranteed to work in future versions.  
-> See [docs/SPEC.md §1.2](docs/SPEC.md#12-versioning-policy) for details.
+> ⚠️ **Incubation (v0.6.1)** — jalo is under active development.
+> As a personal experimental project, `1.0.0` may never be reached;
+> the `0.x.y` line is intended for long-term operation
+> (see SPEC.md §1.2 for versioning policy).
 
 ## Project Description
 

@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-05-15
+
+### Changed
+- Decouple Phase 1/2 implementation scope from `1.0.0` versioning across all docs
+  (SPEC.md §1.2, DESIGN.md §2, VISION.md, DECISION_TCO.md, DECISION_MACRO.md, README)
+
+### Clarified
+- SPEC.md §1.2: `1.0.0` 到達条件を三条件 (仕様安定 / 年単位 deprecation / 非互換警告機構) として明文化。
+  Phase 2 機能実装との独立性を明記。jalo は個人実験プロジェクトであり `1.0.0` への到達は
+  永遠に発生しない可能性が高い旨を明記。
+- DESIGN.md: §2 「実装フェーズ」独立節を新設。Phase 1 (現行) / Phase 2 (計画中) を明文化し、
+  バージョニングとの独立性を示す。
+- VISION.md: 「バージョン 1.0」→「Phase 1/Phase 2」表記に統一し、同一視を除去。
+
 ## [0.6.0] - 2026-05-12
 
 ### Added
