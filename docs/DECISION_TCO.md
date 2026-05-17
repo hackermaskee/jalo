@@ -4,7 +4,52 @@
 
 Phase 1 確定 / Phase 2 再評価予定 — Phase 1 は Option F（TCO なし）で継続。TCO の実装方式は Phase 2 着手時に改めて確定する（下記「推奨」節を参照）。
 
-## 背景と問題の定義
+## 背景と TCO の本質
+
+末尾位置の関数呼び出しを実行する**前**に、現在のコールスタックフレームを
+巻き戻し、新フレームを積まずに制御を移すことで、再帰呼び出しがスタックを
+消費しない最適化。
+
+### ケース (i) 通常の自己末尾再帰での TCO 巻き戻し
+
+以下のような自己末尾再帰関数を考える:
+
+```jalo
+(fn loop [n acc]
+  (if (= n 0)
+    acc
+    (loop (- n 1) (+ acc 1))))     ; ← 末尾位置の自己呼び出し
+```
+
+TCO **なし**の実装 (現 jalo Phase 1) では Java スタックが下記のように積まれる:
+
+```
+┌─────────────────────────┐
+│ eval (loop 3 0)         │  ← F1
+├─────────────────────────┤
+│ eval (loop 2 1)         │  ← F2
+├─────────────────────────┤
+│ eval (loop 1 2)         │  ← F3
+├─────────────────────────┤
+│ eval (loop 0 3)         │  ← F4 → 結果 3 を返却
+└─────────────────────────┘
+```
+
+TCO **あり**の実装 (Option A の recur 採用時) では、末尾呼び出し直前にフレームを
+巻き戻して同一フレームを再利用する:
+
+```
+┌─────────────────────────┐
+│ eval (loop n acc)       │  ← 同じ F1 を再利用
+│   n=3, acc=0  →         │
+│   n=2, acc=1  →         │
+│   n=1, acc=2  →         │
+│   n=0, acc=3  → 結果 3  │
+└─────────────────────────┘
+```
+
+本質は「終端関数呼出しの**前**にコールスタックを巻き戻す」こと。これにより無制限
+深度の再帰が `StackOverflowError` を起こさずに完走する。
 
 jalo は JVM（Java 21）上で動作する純粋関数型の Lisp 方言である。再帰的アルゴリズムは関数型プログラミングの慣用形だが、JVM はバイトコードレベルでの透過的な末尾呼び出し最適化をサポートしない。すべての呼び出しフレームはスタック領域を消費するため、無制限の再帰は最終的に `StackOverflowError` を引き起こす。
 
@@ -33,29 +78,26 @@ jalo は JVM（Java 21）上で動作する純粋関数型の Lisp 方言であ�
 5. **学習コスト** — jalo の対象ユーザーには jq パワーユーザーと Clojure 開発者が含まれる。戦略は彼らの既存のメンタルモデルと一致すること。
 6. **パフォーマンス** — Phase 1 は速度より正確さを優先するが、壊滅的なオーバーヘッドは不適格である。
 
-## 検討オプション
+## ハンドラ跨ぎ末尾呼び出し
 
-- **Option A**: 明示的 `(recur ...)` — Clojure スタイル
-- **Option B**: 暗黙的 TCO + トランポリン — Scheme スタイル
-- **Option C**: 自己末尾のみ最適化 — 保守的サブセット
-- **Option D**: CPS（継続渡しスタイル）変換
-- **Option E**: 限定継続 — Koka スタイル
-- **Option F**: TCO なし — 現状維持（I-08 Option F）
+jalo の evalHandle (Evaluator.java L375-394) は Java try/catch ベースで動作する。
+JaloEffectSignal は RuntimeException を継承し、fillInStackTrace() を抑制して
+例外生成コストを削減している。この実装は中断のみ (abort-only) の shallow handler
+相当 (SPEC.md §4.4 参照)。
 
-## 決定要因マトリクス
+evalHandle が動作する際の Java スタックフレームのレイアウトは以下の通り:
 
-各セルは一行の根拠と記号を示す。◎ 最良 / ○ 良好 / △ 制約あり / × 不利
-
-| オプション | エフェクトハンドラ | JVM Phase 1 | Phase 2 バイトコード | 表現力 | 学習コスト | パフォーマンス |
-|---|---|---|---|---|---|---|
-| A: `recur`（Clojure） | △ 同フレームのみ；ハンドラ境界を越えられない | ◎ バイトコード変換不要 | ○ Phase 2 設計と互換 | ○ 自己/ループ再帰をカバー | △ 非 Clojure ユーザーには新しい構文 | ◎ ヒープオーバーヘッドなし |
-| B: 暗黙的 TCO + トランポリン | × トランポリンはエフェクトを意識する必要あり；ナイーブな実装はハンドラセマンティクスを壊す | ○ 中程度の労力で実現可能 | △ Phase 2 でのセマンティクス乖離リスク | ◎ Scheme スタイルの適切な末尾再帰 | ○ 新構文不要 | ○ バウンスごとにヒープ確保 |
-| C: 自己末尾のみ | ○ 自己呼び出しはハンドラ境界を越えない | ◎ 最も実装が単純 | ○ 互換 | △ 相互再帰は対象外 | △ 部分的な最適化は驚きをもたらす | ◎ |
-| D: CPS 変換 | ◎ ハンドラは継続として自然に統合 | × 非常に重い；インタープリタ全体を書き換える | △ Phase 2 設計に強い制約 | ◎ ハンドラ跨ぎ・相互再帰を含む完全な汎用性 | × 保守担当者の学習コスト非常に高い | × ヒープ確保コスト高 |
-| E: 限定継続 | ◎ ネイティブ統合；エフェクトハンドラは継続 | × 非常に重い；Phase 1 では実現不可能 | × 根本的な再設計が必要 | ◎ 完全な汎用性 + 将来の継続サポート | × 非常に高い | × 非常に低速 |
-| F: TCO なし（現状） | ◎ 相互作用なし | ◎ 実装コストゼロ | ◎ Phase 2 に制約なし | × 深い再帰は禁止；StackOverflow リスク | ◎ 最もシンプル；ユーザーは `reduce`/`map` を使用 | ◎ |
-
-## ハンドラ跨ぎの末尾呼び出し
+```
+evalHandle(form, env)                          ← Java frame F1
+  try { eval(form.get(1), env) }               ← Java frame F2 (body eval)
+    applyForm(...)                             ← Java frame F3
+      eval(...)                                ← Java frame F4 (recursive)
+        ...                                    ← F5, F6, ...
+        throw new JaloEffectSignal(tag, val);  ← JVM stack unwind
+  } catch (JaloEffectSignal sig) {             ← F1 まで JVM stack 巻き戻し
+      evaluate handler[2] in handleEnv         ← 新たな eval frame F2'
+  }
+```
 
 ### 問題の定義
 
@@ -72,6 +114,37 @@ jalo のエフェクトハンドラはコールスタック上に動的なフレ
 Option A では、`(recur ...)` を使って `handle` フレーム境界を越えることはできない。`recur` は最も近い `loop` または `fn` フレームに限定される。`g` への呼び出しは常にスタックフレームを消費する。
 
 **handler 跨ぎ TCO の優先度については殿のご判断待ちとする（Phase 2 設計時に確定予定）。本 ADR では Open Question として留保する。**
+
+### ケース (ii) ハンドラ跨ぎ末尾呼出しで TCO と handle が衝突するケース
+
+```jalo
+(handle
+  (loop 1000000 0)            ; ← (loop ...) は末尾位置だが handle の内側
+  [effect v (resume v)])
+```
+
+現状の jalo evalHandle 実装 (Evaluator.java L375) では下記のように積まれる:
+
+```
+┌──────────────────────────────────────────┐
+│ evalHandle(...)                          │  ← Java F1 (catch を待つ frame)
+│   try { eval(body=(loop ...)) }          │
+├──────────────────────────────────────────┤
+│   eval (loop 1000000 0)                  │  ← Java F2
+├──────────────────────────────────────────┤
+│   eval (loop 999999 1)                   │  ← Java F3
+├──────────────────────────────────────────┤
+│   ...                                    │  ← F4, F5, ... 蓄積
+└──────────────────────────────────────────┘
+```
+
+ここで TCO が F2 以降を素朴に巻き戻して F1 を再利用しようとすると、**F1 の try
+ブロックも消滅**する。その後 (loop ...) 内部で `(raise "effect" v)` が起きた場合、
+catch する handler が消えており、effect は外側 (REPL や CLI) に漏れる。これは
+handle の意味論を破壊する。
+
+したがって TCO 戦略は handle 境界をまたぐ呼び出しを除外するか (Option A / C)、
+ハンドラフレーム自体を継続として扱うか (Option D / E) を選ばねばならない。
 
 ### jq try-catch との互換性
 
@@ -97,6 +170,28 @@ jalo の `handle`/`raise` は jq の `try … catch` のエフェクト対応版
 ### 推奨
 
 ハンドラ跨ぎ末尾呼び出しが*必要かどうか*はプロジェクトオーナーの判断待ちである（Open Question として留保；下記「未解決の問い」Q4 参照）。必要でない場合は Option A または F で十分である。
+
+## 検討オプション
+
+- **Option A**: 明示的 `(recur ...)` — Clojure スタイル
+- **Option B**: 暗黙的 TCO + トランポリン — Scheme スタイル
+- **Option C**: 自己末尾のみ最適化 — 保守的サブセット
+- **Option D**: CPS（継続渡しスタイル）変換
+- **Option E**: 限定継続 — Koka スタイル
+- **Option F**: TCO なし — 現状維持（I-08 Option F）
+
+## 決定要因マトリクス
+
+各セルは一行の根拠と記号を示す。◎ 最良 / ○ 良好 / △ 制約あり / × 不利
+
+| オプション | エフェクトハンドラ | JVM Phase 1 | Phase 2 バイトコード | 表現力 | 学習コスト | パフォーマンス |
+|---|---|---|---|---|---|---|
+| A: `recur`（Clojure） | △ 同フレームのみ；ハンドラ境界を越えられない | ◎ バイトコード変換不要 | ○ Phase 2 設計と互換 | ○ 自己/ループ再帰をカバー | △ 非 Clojure ユーザーには新しい構文 | ◎ ヒープオーバーヘッドなし |
+| B: 暗黙的 TCO + トランポリン | × トランポリンはエフェクトを意識する必要あり；ナイーブな実装はハンドラセマンティクスを壊す | ○ 中程度の労力で実現可能 | △ Phase 2 でのセマンティクス乖離リスク | ◎ Scheme スタイルの適切な末尾再帰 | ○ 新構文不要 | ○ バウンスごとにヒープ確保 |
+| C: 自己末尾のみ | ○ 自己呼び出しはハンドラ境界を越えない | ◎ 最も実装が単純 | ○ 互換 | △ 相互再帰は対象外 | △ 部分的な最適化は驚きをもたらす | ◎ |
+| D: CPS 変換 | ◎ ハンドラは継続として自然に統合 | × 非常に重い；インタープリタ全体を書き換える | △ Phase 2 設計に強い制約 | ◎ ハンドラ跨ぎ・相互再帰を含む完全な汎用性 | × 保守担当者の学習コスト非常に高い | × ヒープ確保コスト高 |
+| E: 限定継続 | ◎ ネイティブ統合；エフェクトハンドラは継続 | × 非常に重い；Phase 1 では実現不可能 | × 根本的な再設計が必要 | ◎ 完全な汎用性 + 将来の継続サポート | × 非常に高い | × 非常に低速 |
+| F: TCO なし（現状） | ◎ 相互作用なし | ◎ 実装コストゼロ | ◎ Phase 2 に制約なし | × 深い再帰は禁止；StackOverflow リスク | ◎ 最もシンプル；ユーザーは `reduce`/`map` を使用 | ◎ |
 
 ## オプション別 長所・短所
 
@@ -124,6 +219,37 @@ Rich Hickey は Clojure の状態と制御に対する明示的なアプロー�
 - 同じ囲みフレームに制限される。相互末尾再帰は `trampoline` が必要。
 - `handle` 境界を越えられない。エフェクトを多用するコードでハンドラ跨ぎループに `recur` を使えない。
 - jq ユーザーと初心者は jq にない新しい構文を学ぶ必要がある。
+
+#### recur の相互再帰非対応と trampoline によるフォールバック
+
+`recur` は最も近い囲みの `loop` または `fn` フレームに限定される (Clojure 公式:
+Special Forms — recur)。したがって相互再帰末尾呼び出しでは使用できない。
+
+Clojure はこの制約に対する標準回避策として `trampoline` ユーティリティを提供する:
+
+> "If f returns a fn, calls that fn with no arguments, and continues to repeat,
+> until the return value is not a fn"
+> — Clojure 公式 ClojureDocs `clojure.core/trampoline`,
+> https://clojuredocs.org/clojure.core/trampoline (accessed 2026-05-17)
+
+```clojure
+(defn is-even [n]
+  (if (zero? n) true #(is-odd (dec n))))   ; 末尾で fn を返す
+
+(defn is-odd [n]
+  (if (zero? n) false #(is-even (dec n)))) ; 末尾で fn を返す
+
+(trampoline is-even 1000000)               ; bouncing で stack 消費なし
+```
+
+各関数は末尾で fn を返し、`trampoline` がそれを引数なしで呼び出す。これを fn でない
+値が返されるまで繰り返す。コードが一段冗長になる代わりに、stack 消費なしで相互再帰
+を表現できる。
+
+**jalo での含意**: Option A を採用する場合、相互末尾再帰には Clojure と同様の
+trampoline パターンを stdlib に追加することが望ましい (Phase 2 着手時)。署名候補:
+`(trampoline <fn-or-value> <args>...)`。本 ADR §6 マトリクスの「相互再帰」軸で
+Clojure と同等の表現力を確保できる
 
 ### Option B: 暗黙的 TCO + トランポリン（Scheme スタイル）
 
@@ -227,6 +353,21 @@ Phase 2 での TCO 実装方式（Option A〜E の選択）は、当時の設計
 
 Option B〜E は Phase 2 以降に先送りする。代数的エフェクトとの相互作用・実装コスト、あるいはその両方が Phase 1 に相応しい水準を超えているためである。
 
+#### cmd_427 (Phase / バージョニング独立) との整合
+
+本 ADR は「Phase 2 で TCO を実装する」を推奨するが、これは **`1.0.0` への到達条件
+を満たすことを意味しない**。SPEC.md §1.2 で定義する `1.0.0` 到達条件は以下の三条件
+である:
+
+- 言語仕様が安定し、後方互換性を維持できる状態であること。
+- 年単位の deprecation 期間を運用できる体制が整っていること。
+- 非互換変更に対する警告機構を実装側で提供できる能力を持つこと。
+
+Phase 2 の TCO 実装 (Option A〜E のいずれか) は上記三条件の前提ではない。Phase 2
+着手後も `0.x.y` 系列を継続することは正当であり、jalo は個人実験プロジェクトとして
+`1.0.0` への到達は永遠に発生しない可能性も含めて運用する (DESIGN.md §2 実装フェーズ
+節参照)。
+
 ## 未解決の問い
 
 以下の問いは、この ADR を確定させる前にプロジェクトオーナーの判断が必要である。
@@ -245,6 +386,7 @@ Option B〜E は Phase 2 以降に先送りする。代数的エフェクトと�
 | Clojure | Functional Programming — Recursive Looping | https://clojure.org/about/functional_programming | 2026-05-12 |
 | Clojure | Are We There Yet? (Rich Hickey, JVM Languages Summit 2009) | https://www.infoq.com/presentations/Are-We-There-Yet-Rich-Hickey/ | 2026-05-12 |
 | Clojure | Simple Made Easy (Rich Hickey, Strange Loop 2011) | https://www.infoq.com/presentations/Simple-Made-Easy/ | 2026-05-12 |
+| Clojure | ClojureDocs — clojure.core/trampoline | https://clojuredocs.org/clojure.core/trampoline | 2026-05-17 |
 | Scheme | R5RS §3.5 Proper Tail Recursion | https://conservatory.scheme.org/schemers/Documents/Standards/R5RS/HTML/r5rs-Z-H-6.html | 2026-05-12 |
 | Koka | Koka Language Book | https://koka-lang.github.io/koka/doc/book.html | 2026-05-12 |
 | Erlang | Reference Manual — Functions | https://www.erlang.org/doc/reference_manual/functions.html | 2026-05-12 |
