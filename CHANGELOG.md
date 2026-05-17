@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+- docs: Updated DECISION_MACRO.md §Recommendation — Q1 (hygienic + auto-gensym),
+  Q5 (TCO independence), D1 (macro before bytecode compiler, de-special-form motivation),
+  D2 (Option E excluded from macro mechanism, Phase 2 candidates = A/C only)
+
 ## [0.6.2] - 2026-05-17
 
 ### Changed

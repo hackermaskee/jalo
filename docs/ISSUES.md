@@ -98,6 +98,6 @@
 
 ## I-14: マクロ機構未設計
 
-**状態**: 📋 設計未確定（殿レビュー待ち）  
-**内容**: jalo にはまだ `defmacro` 相当のマクロ機構がない。SPEC §5.2 に「第 2 版以降でマクロ機構へ移行する予定」と予告されているが、具体的な設計は未確定。5 案（syntax-rules / syntax-case / Clojure defmacro / Racket phase + parse / reader macro 拡張中心）を評価中。  
+**状態**: 📋 設計部分確定（Q1 ✅ 衛生+auto-gensym / Q5 ✅ TCO 独立 / Q3・Q6 残置 Open Question あり）  
+**内容**: jalo にはまだ `defmacro` 相当のマクロ機構がない。SPEC §5.2 に「第 2 版以降でマクロ機構へ移行する予定」と予告。Phase 2 の実装候補は Option A（syntax-rules）と Option C（Clojure defmacro + syntax-quote + auto-gensym）の 2 案（amendment_1 確定）。Option E はマクロ機構候補から除外（2026-05-17 殿裁可）。衛生性方針: 基本衛生 + Clojure auto-gensym 許容（Q1 解決済）。TCO 独立（Q5 解決済）。展開タイミング（Q3）は殿追加裁可待ち。  
 **pointer**: `docs/DECISION_MACRO.md`（ADR-002）

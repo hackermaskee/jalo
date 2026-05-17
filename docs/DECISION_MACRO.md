@@ -54,7 +54,9 @@ Clojure の設計哲学として、公式ドキュメントは次のように述
 | B: syntax-case | ◎ 完全衛生（syntax object 操作） | △ syntax object 設計が高コスト | ○ 軽微な制約あり | ◎ 構文変換のみ | ◎ 同上 | △ 既存 #jq と別枠組み |
 | C: Clojure defmacro | △ auto-gensym + ns 限定、部分衛生 | ○ Clojure 前例あり、中程度 | ○ 軽微な制約あり | ○ ほぼ直交（defmacro 本体 eval 注意） | △ defmacro 本体評価が末尾位置を変えうる | △ 別実装、既存 #jq 維持可 |
 | D: Racket phase + parse | ◎ phase-level 分離で完全衛生 | × full redesign 必要、Phase 1 不可 | △ phase 設計が bytecode 設計に影響 | ◎ 完全直交（phase 分離） | ○ ほぼ独立 | △ 別実装 |
-| E: reader macro 拡張 | ◎ 衛生不要（read time 変換のみ） | ◎ 既存 #jq の自然拡張 | ◎ AST は read 時点で確定、bytecode 無影響 | ◎ read time のみ | ◎ TCO とは別 phase | ◎ 既存 #jq と完全統合 |
+| E: reader macro 拡張 **⚠️ マクロ機構不採用 (amendment_1)** | ◎ 衛生不要（read time 変換のみ） | ◎ 既存 #jq の自然拡張 | ◎ AST は read 時点で確定、bytecode 無影響 | ◎ read time のみ | ◎ TCO とは別 phase | ◎ 既存 #jq と完全統合 |
+
+> **最終評価軸**: Phase 2 マクロ機構の候補は **Option A** と **Option C** の 2 案（amendment_1 確定）。Option E はマクロ機構候補から除外（将来の reader-level 別機能として再検討余地あり）。
 
 ## 既存 quasiquote / reader macro との関係
 
@@ -234,6 +236,8 @@ Matthew Flatt et al. による研究実装。phase-level で compile-time / run-
 
 ### Option E: Reader macro 拡張中心（`#jq` 一般化、defmacro は最小）
 
+> **[amendment_1 (2026-05-17)] マクロ機構候補から除外**: 殿のご裁可により、Option E は Phase 2 マクロ機構の実装候補から除外された。ただし将来、reader-level の構文拡張として独立した別機能として再検討する余地を残す。現存の `#jq(...)` reader macro (cmd_423 実装済) はマクロ機構とは独立に存続し、本 ADR の決定により廃止されるものではない。
+
 既存 `#jq(...)` を `#<name>(...)` として一般化し、`defreader` で任意の reader macro を登録可能にする。compile-time macro 機構は導入せず、read-time のみで賄う jalo 独自路線。
 
 ```jalo
@@ -269,15 +273,48 @@ Matthew Flatt et al. による研究実装。phase-level で compile-time / run-
 
 ## 推奨
 
-**推奨: Phase 2 で実装する。Phase 1 は当面マクロ機構なしで継続し、`quasiquote` + reader macro `#jq(...)` で代用する。Phase 2 着手時に 5 Options から確定する。**
+**推奨: Phase 2 で実装する。Phase 1 は当面マクロ機構なしで継続し、`quasiquote` + reader macro `#jq(...)` で代用する。Phase 2 の実装候補は Option A（syntax-rules）と Option C（Clojure defmacro + syntax-quote + auto-gensym）の 2 案とし、Phase 2 着手時に最終選択する。**
 
-Phase 1 における jalo のミッション（VISION.md §1）——JSON ネイティブなデータに対して予測可能・合成可能・エフェクトを意識した計算を行う——に対して、マクロ機構なし（当面の状態）は以下の理由で許容される:
+### 衛生性方針（Q1 解決済 ✅）
 
-- VISION.md §2「目標外」に「バージョン 1.0 でのマクロシステム」が明示されている（スコープ外として確定）。
-- Phase 1 の代表的なユースケース（JSON ログ集計・API レスポンス変換）では、`quasiquote`・`fn`・高階関数で表現力は十分。
-- マクロ機構の選択は TCO 設計（DECISION_TCO.md）との相互作用を含む重大な設計判断であり、Phase 2 の bytecode コンパイラ設計と合わせて確定するのが最も合理的。
+基本的に衛生マクロを採用する。Clojure 流 `syntax-quote`（`` ` ``）+ auto-gensym（`foo#` 記法）は許容する。完全な非衛生（Common Lisp 流 gensym 手動）は採用しない。
 
-**Phase 1 での現状代用手段（quasiquote + `#jq` reader macro）:**
+殿のご裁可（2026-05-17 amendment_1）により Q1 は解決済：「基本衛生 + Clojure auto-gensym 許容」。
+
+### Phase 2 候補（D2 確定）
+
+- **Option A**: syntax-rules スタイル（パターンベース完全衛生マクロ）
+- **Option C**: Clojure defmacro + syntax-quote + auto-gensym（実用主義的部分衛生）
+
+Phase 2 着手時にいずれかを最終選択する。Option B・D は Phase 2 以降の評価対象として留保する。
+
+**Option E**: マクロ機構の実装候補から除外する（2026-05-17 amendment_1）。将来、reader-level の別機能として独立した検討を行う余地は残す（§Option E 節参照）。既存の `#jq(...)` reader macro はマクロ機構とは独立に存続し、本決定により廃止されるものではない。
+
+### Phase 2 内実装順序（D1 確定）
+
+**マクロ機構をバイトコードコンパイラに先行して実装する。**
+
+理由: 現存スペシャルフォームの一部をマクロとして再実装（de-special-form）することで、バイトコードコンパイラが扱うべきスペシャルフォームを削減できる。de-special-form の確定候補 4 件：
+
+- `let*`（SPEC §4.2 でマクロ機構への移行を既予告）
+- `quasiquote`（SPEC §5.2 でマクロ機構への移行を既予告）
+- `and`、`or`（SPEC §4.5、短絡評価を `if` ネストに展開可能）
+
+コアスペシャルフォーム（`quote` / `if` / `let` / `letrec` / `fn` / `def` / `declare` / `handle` / `raise` / `match`）はマクロ化しない。de-special-form の具体的な移行順序・別 cmd 化は Q7 を参照。
+
+### TCO との相互作用（Q5 解決済 ✅）
+
+マクロ展開器と TCO の相互作用は本 ADR では考慮外とする。TCO はマクロ展開後の AST に対してのみ適用する。マクロ展開器自体が TCO を意識する必要はない（詳細は DECISION_TCO.md 参照）。
+
+殿のご裁可（2026-05-17 amendment_1）により Q5 は解決済。
+
+### マクロ展開タイミング（Q3 残置）
+
+殿のご追加裁可待ち（§未解決の問い Q3 参照）。軍師推奨は compile-time（SyntaxChecker 直前の static expansion pass）である。
+
+### Phase 1 での現状代用手段（quasiquote + `#jq` reader macro）
+
+Phase 2 マクロ機構実装まで、以下の 3 パターンで代用する:
 
 ```jalo
 ; 代用パターン 1: quasiquote で配列・マップを構築
@@ -296,47 +333,31 @@ Phase 1 における jalo のミッション（VISION.md §1）——JSON ネイ
 ; => "Alice"
 ```
 
-Phase 2 での実装方式（Option A〜E の選択）は、当時の設計制約・プロジェクトオーナーの判断（Q1-Q6）を踏まえて改めて決定する。
+Phase 1 における jalo のミッション（VISION.md §1）——JSON ネイティブなデータに対して予測可能・合成可能・エフェクトを意識した計算を行う——に対して、マクロ機構なし（当面の状態）は以下の理由で許容される:
 
-Option D（Racket phase + parse）は Phase 2 以降に先送りする。JVM 実装難度が全 Options 中最も高く、Phase 1 では実現不可能であるためである。Option B〜D は Phase 2 以降の評価対象とする。Option A・C・E は Phase 2 での有力候補として Q1（衛生方式）の判断後に絞り込む。
+- VISION.md §2「目標外」に「バージョン 1.0 でのマクロシステム」が明示されている（スコープ外として確定）。
+- Phase 1 の代表的なユースケース（JSON ログ集計・API レスポンス変換）では、`quasiquote`・`fn`・高階関数で表現力は十分。
+- マクロ機構の選択は Phase 2 の bytecode コンパイラ設計と合わせて確定するのが最も合理的（TCO との相互作用は考慮外: Q5 解決済）。
+
+Option D（Racket phase + parse）は Phase 2 以降に先送りする。JVM 実装難度が全 Options 中最も高く、Phase 1 では実現不可能であるためである。Option B・D は Phase 2 以降の評価対象として留保する。
 
 ## DECISION_TCO.md との交差論点
 
-### macro と TCO の相互作用
-
-DECISION_TCO.md Q6 は「将来のマクロシステムは TCO 戦略に制約を課すか」を Open Question として留保している。本節はその具体化である。
-
-**展開後コードの末尾位置保持:**
-
-compile-time macro（Option A-C）は AST を変換し展開後コードを生成する。展開後のコードが末尾位置にあれば TCO が適用可能であり、Option A/B/C は TCO 設計に追加制約を与えない。
-
-```jalo
-; swap! マクロを末尾位置で使う場合
-(fn [a b]
-  (swap! a b))   ; 展開後コードが末尾位置にあれば TCO 適用可能
-```
-
-**macro が effect handler frame を跨ぐ場合:**
-
-マクロ展開後のコードが `handle` フォームを生成し、その内部から外部への末尾呼び出しを行う場合、DECISION_TCO.md「ハンドラ跨ぎの末尾呼び出し」と同様の問題が生じる可能性がある。
-
-**Option 別の影響:**
-- **Option A/B/C**: 展開後 AST は通常 jalo コードと同等、TCO 設計に追加制約なし（◎）。
-- **Option D**: phase-level 分離が Phase 2 bytecode 設計に干渉する可能性（△）。
-- **Option E**: read-time 変換のみ、TCO とは完全に別 phase（◎）。
-
-**結論**: Option A/B/C/E は TCO 設計と直交する。Phase 2 での実装確定時に macro × TCO 統合設計を行う（VISION.md §6 連動）。
+マクロと TCO の相互作用は本 ADR では考慮外とする（2026-05-17 amendment_1、Q5 解決済）。TCO はマクロ展開後の AST に対してのみ適用する。マクロ展開器自体が TCO を意識する必要はない。詳細は DECISION_TCO.md §推奨節を参照。
 
 ## 未解決の問い
 
 以下の問いは、この ADR を確定させる前にプロジェクトオーナーの判断が必要である。
 
-- **Q1: 衛生マクロのみか、非衛生も許すか**【優先度: 高】— Scheme 系（Option A/B/D）は完全衛生、Clojure（C）は auto-gensym 限定衛生、Option E は衛生概念外。「Scheme 流（完全衛生強制）/ Clojure 流（実用主義）/ E 路線（衛生概念導入回避）」のどれを採るか。Recommendation を導く核論点。
+- **Q1: 衛生マクロのみか、非衛生も許すか** ✅ **解決済 (2026-05-17 amendment_1)** — 基本衛生 + Clojure auto-gensym 許容。完全非衛生（Common Lisp 流 gensym 手動）は不採用。
 - **Q2: マクロと effect handler の相互作用** — `defmacro` 本体で `raise`/`handle` を使えるか？マクロ展開中の effect は通常評価と同じ扱いか？compile-time effect handler を別途設けるか？
-- **Q3: マクロ展開タイミング** — read-time / compile-time / runtime のどれを正とするか。Option E は read-time のみ、Option A-D は compile-time。Phase 1（tree walker）では compile-time が tree-walk-time となる。
+- **Q3: マクロ展開タイミング**【殿追加裁可待ち】— read-time / compile-time / runtime のどれを正とするか。Option A-D は compile-time。Phase 1（tree walker）では compile-time が tree-walk-time となる。軍師推奨: compile-time（SyntaxChecker 直前の static expansion pass を新設）。理由: Clojure/Scheme/Racket 標準に整合、Q5 裁可と整合、Phase 1/2 シームレス、TCO 適用が素直。
 - **Q4: hygiene vs 学習コスト** — jq ユーザーはマクロ未経験、Clojure 経験者は `defmacro` に馴染みあり、Scheme 経験者は `syntax-rules` を期待。学習コスト最小化のためどのスタイルを採るか（VISION.md §4 Target Users との整合）。
-- **Q5: macro と TCO の相互作用（DECISION_TCO.md Q6 の具体化）**【優先度: 中】— CPS 変換型マクロ（Option D の極端例）は TCO 設計を侵食する可能性。DECISION_TCO.md Phase 2 での TCO 実装方式確定時に macro 機構選択がどう影響するか。
+- **Q5: macro と TCO の相互作用（DECISION_TCO.md Q6 の具体化）** ✅ **解決済 (2026-05-17 amendment_1)** — TCO との相互作用は考慮外。TCO はマクロ展開後の AST に対してのみ適用する（DECISION_TCO.md 参照）。
 - **Q6: 「第 2 版マクロ機構移行（SPEC §5.2）」の具体的タイミング** — 本 ADR で確定したマクロ機構を実際に実装するのは Phase 2 着手時か、Phase 1 末期の別 cmd か。VISION.md §6「マクロシステム（1.0+）」との整合。
+- **Q7: de-special-form 確定候補（let\*/quasiquote/and/or）の移行順序と別 cmd 化** — 確定 4 候補（let\*/quasiquote/and/or）の実装優先度・依存関係・別 cmd 分割方針。
+- **Q8: Option A（syntax-rules）vs Option C（Clojure defmacro + auto-gensym）の最終選択基準** — Phase 2 着手時に再評価する。選択基準（学習コスト・hygiene 強度・実装コスト）の優先順位を確定。
+- **Q9: 将来の reader-level 別機能（`#xxx(...)` 系拡張）の検討条件** — Option E 由来の `defreader` 構想を将来独立機能として再評価する際の条件・タイミング・スコープ。
 
 ## 参考文献
 
