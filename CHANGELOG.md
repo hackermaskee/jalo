@@ -3,6 +3,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-05-17
+
+### Changed
+- docs: Rewrote DECISION_TCO.md for readability — added callstack diagrams (case i/ii),
+  evalHandle Java frame layout, JVM language TCO survey (Kotlin/Scala/Kawa/Frege/ABCL),
+  Option G (stdlib trampoline), cmd_427 phase/versioning alignment, §11 references (16 URLs)
+
 ## [0.6.1] - 2026-05-15
 
 ### Changed
