@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+- docs: DECISION_MACRO.md V1 (ADR-002 V1) — jalo マクロ機構設計。Phase 2 候補 Option A (syntax-rules) / Option C (Clojure defmacro + auto-gensym) に絞込、衛生方針 (Q1 解決)、de-special-form 確定候補 4 件 (let*/quasiquote/and/or)、D1 (マクロ先行実装) / D2 (Option E 除外) 設計指針を確定 (cmd_425 + amendment_1)
+
+  > **Note**: 本 ADR (V1) は cmd_434 で起案される ADR-002 (macro × namespace 統合設計) によって近日 supersede される予定。本 V1 は「Phase 2 候補 Option A/C 絞込」までの議論記録として保存される。
+
 ### Changed
 - docs: Updated DECISION_MACRO.md §Recommendation — Q1 (hygienic + auto-gensym),
   Q5 (TCO independence), D1 (macro before bytecode compiler, de-special-form motivation),
