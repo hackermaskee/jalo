@@ -1,0 +1,521 @@
+# ADR-002 (V2): jalo マクロ機構 × 名前空間統合設計
+
+## §1 ステータス
+
+**Status: Proposed**
+
+殿によるレビュー完了後に **Accepted** へ移行し、V1 (`docs/DECISION_MACRO.md`) を **Superseded** 化する。
+V1 は Option A/C 絞込までの議論記録として保存する（§2 参照）。
+
+## §2 Supersedes
+
+本 ADR は以下の V1 ADR を supersede する:
+
+- **V1**: `docs/DECISION_MACRO.md` — ADR-002: jalo マクロ機構設計（2026-05-19 merge 済）
+
+**移行理由 (殿のご見解 2026-05-19)**:
+
+V1 は Phase 2 マクロ候補を Option A（syntax-rules）と Option C（Clojure defmacro）に絞り込んだが、
+衛生問題への対処を「Phase 2 内部の実装詳細」としてカプセル化していた。殿のご見解により、
+衛生問題を「表面化させ名前空間分離で根本解決を図る」方向に大幅仕切り直しを行う。
+同時に namespace 機構（ns スペシャルフォーム、グローバル名前空間定義 form）を本 ADR で統合設計する。
+
+V1 から V2 への主要変更点:
+
+| 観点 | V1 | V2 (本 ADR) |
+|---|---|---|
+| 衛生問題の位置づけ | Phase 2 実装詳細 | 設計の核 (§3 で定義) |
+| 解決方式 | Option A/C から Phase 2 着手時選択 | 名前空間分離方式 (§6 D2) に確定 |
+| namespace 機構 | 未設計 (I-02 残置) | 本 ADR で統合設計 |
+| quasiquote | Clojure 流 unquote 許容 | データ構築専用 (§4.3)、ns ラップが代替 |
+| 展開タイミング | Q3 (Open Question) | run/compile 時、read 不採用 (D1) |
+
+## §3 背景と問題の定義
+
+### §3.1 衛生問題 (1)(2) の定義
+
+殿のご見解 (2026-05-19) に基づき、jalo のマクロ衛生問題を以下の 2 類型に整理する:
+
+> **(1) マクロ展開器が挿入した束縛が、展開元の参照を捕捉する**
+> — マクロ局所変数が展開元スコープを汚染するケース
+
+> **(2) マクロ展開器が挿入した参照が、展開元の束縛に捕捉される**
+> — マクロが意図した束縛と異なる束縛を参照するケース
+
+#### 問題 (1) の jalo 具体例
+
+`swap!` マクロが一時変数 `tmp` を挿入し、展開元コードにも `tmp` が存在する場合:
+
+```jalo
+; マクロ定義 (仮想的な defmacro)
+(defmacro swap! [a b]
+  ["let", [["tmp", a]], ["begin", ["set!", "a", "b"], ["set!", "b", "tmp"]]])
+
+; 展開元コード (tmp を使っている)
+(let [tmp 99]
+  (swap! x tmp))  ; => tmp が "展開元の tmp=99" ではなくマクロの tmp に捕捉される危険
+```
+
+jalo AST (JSON) では束縛はシンボル名（文字列）のみで識別されるため、
+マクロ挿入の `"tmp"` と展開元の `"tmp"` を区別する機構が必要となる。
+
+#### 問題 (2) の jalo 具体例
+
+`my-cons` マクロが組み込みの `cons` を参照するが、展開元が `cons` を再定義済の場合:
+
+```jalo
+; マクロ定義: cons を使ってリスト構築する展開形を返す
+(defmacro my-cons [head tail]
+  ["cons", head, tail])
+
+; 展開元: cons をローカルで再定義
+(let [cons (fn [a b] "overridden")]
+  (my-cons 1 [2 3]))  ; => マクロが意図した cons ではなくローカルの cons を参照
+```
+
+jalo では名前=文字列のみのため、展開元の `cons` とマクロ作成者環境の `cons` を区別できない。
+
+### §3.2 既存処理系の対策比較表
+
+殿のご見解 (2026-05-19) による整理 (各セルに一次資料引用を付与):
+
+| 処理系 | 衛生問題 (1) への対策 | 衛生問題 (2) への対策 |
+|---|---|---|
+| Common Lisp | `gensym` で衝突しない名前を人手生成 | 諦め (Lisp2 の関数/変数名前空間分離で緩和) |
+| Scheme (syntax-rules / syntax-case) | `rename` で識別子を自動リネーム | 展開器側の束縛を参照 (syntax closure) |
+| Clojure | auto-gensym (`x#` → `x_123`) | syntax-quote (`` ` ``) でシンボルを ns 修飾 |
+
+**Common Lisp — gensym:**
+
+> "`gensym` creates and returns a fresh uninterned symbol, as if by calling `make-symbol`."  
+> — Common Lisp HyperSpec, Function `GENSYM`,  
+> https://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm (accessed 2026-05-19)
+
+Common Lisp はマクロプログラマが `gensym` を明示的に呼び出し、衝突しない一意名を生成する。
+問題 (1) はこれで対処できるが、問題 (2) に対しては Lisp2 の関数名前空間（変数 ns と関数 ns が独立）で部分的に緩和するにとどまる。
+
+**Scheme — syntax-rules / syntax-case:**
+
+> "Scheme is a statically scoped programming language. Each use of a macro is expanded into a syntactic form whose free variables are interpreted relative to the environment in which the macro was defined."  
+> — Scheme R7RS §4.3 "Macros" (PDF),  
+> https://small.r7rs.org/attachment/r7rs.pdf §4.3 (accessed 2026-05-19)
+
+Scheme の `syntax-rules` は識別子を自動的にリネームし、完全な衛生を保証する。
+`syntax-case`（R6RS §12）は手続き的な操作を可能にしながら同等の衛生を提供する:
+
+> "The syntax-case form introduces pattern variables. ...  
+> Variables introduced by the macro are automatically renamed to avoid conflicts."  
+> — Revised⁶ Report on the Algorithmic Language Scheme (R6RS) §12,  
+> https://www.r6rs.org/final/html/r6rs/r6rs-Z-H-16.html (accessed 2026-05-19)
+
+**Clojure — auto-gensym + syntax-quote:**
+
+> "If a symbol is non-namespace-qualified and ends with '#', it is resolved to a generated symbol with the same name to which '_' and a unique id have been appended."  
+> — Clojure official documentation, "Reader — Syntax-quote",  
+> https://clojure.org/reference/reader#syntax-quote (accessed 2026-05-19)
+
+> "Clojure has a programmatic macro system which allows the compiler to be extended by user code."  
+> — Clojure official documentation, "Macros",  
+> https://clojure.org/reference/macros (accessed 2026-05-19)
+
+Clojure の `defmacro` は syntax-quote (`` ` ``) で名前空間修飾シンボルを生成することで問題 (2) に対処する。
+問題 (1) は auto-gensym (`x#`) で対処する。
+
+**Lisp1 / Lisp2 と問題 (2) の深刻度差異:**
+
+殿のご見解: Lisp2（Common Lisp）では変数名前空間と関数名前空間が分離しているため、
+`(cons ...)` のような関数呼び出しは変数 `cons` の再定義に影響されにくい（問題 (2) が緩和される）。
+一方 jalo は Lisp1（変数名前空間と関数名前空間が統一）であり、問題 (2) がより深刻となる。
+
+## §4 jalo 固有の制約
+
+殿のご見解 (2026-05-19) により、既存処理系の手法の多くが jalo には適用不可であることが確定した。
+
+### §4.1 AST モデルの制約 (JSON、シンボル構造非保持、名前=文字列のみ)
+
+jalo の AST は homoiconic JSON である。シンボルはリッチなオブジェクト（Scheme の syntax object 等）ではなく、**純粋な文字列**として表現される。
+
+```
+; Scheme では識別子はスコープ情報を保持するオブジェクト
+; (define-syntax swap! (lambda (stx) (syntax-case stx () ...)))
+; → stx は syntax object、識別子ごとにスコープが付属
+
+; jalo では識別子は単なる文字列
+["let", [["tmp", 1]], "tmp"]
+; "tmp" は文字列であり、定義場所・スコープ情報を持たない
+```
+
+このため:
+- Scheme の `rename(x)` 方式（トークン単位で識別子をリネームし、マクロ作成者 ns 由来として識別）は **採用不可**
+- 名前=文字列のみゆえ、同一文字列の識別子は区別されない
+- マクロ展開後も AST は通常の JSON 配列/文字列であり続ける
+
+### §4.2 read 時二段解決不可
+
+Scheme や Common Lisp では read 時にシンボルオブジェクトを生成し、後段で実体解決を行う二段構造が可能である。
+jalo の Reader は以下のように単純化されている:
+
+- Reader: トークンを JSON 値（文字列・数値・配列・マップ）として解析
+- Parser: JSON を jalo AST として構造化
+- Evaluator/Compiler: AST 上で名前解決・評価
+
+識別子はシンボルオブジェクトではなく文字列のため、read 時点での「マクロ作成者 ns に属するシンボル」という
+メタ情報の付与ができない。名前解決は evaluate/compile 段階でのみ行われる。
+これは §6 D1（展開タイミング = run/compile、read 不採用）と整合する。
+
+### §4.3 quasiquote データ構築専用（Clojure 流不採用、match パターンとの双対性）
+
+jalo の `quasiquote` は **JSON モデル値の構築** と **`match` 左辺パターン** に使うスペシャルフォームであり、
+この設計が殿の設計の核をなす（SPEC §5.1-§5.2）。
+
+Clojure では syntax-quote (`` ` ``) を使ってマクロ本体でシンボルを名前空間修飾する:
+
+```clojure
+; Clojure: syntax-quote でシンボルを ns 修飾
+(defmacro my-macro [x]
+  `(clojure.core/cons ~x nil))  ; clojure.core/cons は修飾済
+```
+
+殿のご裁可により、**この方式は jalo では不採用**:
+- jalo の `quasiquote` はデータ構築専用であり、マクロ展開中のシンボル修飾には使わない
+- `match` パターンとの双対性（左辺パターン ↔ 右辺構築）が設計の核であり、
+  マクロ用途で `quasiquote` の意味を拡張することは双対性を破壊する
+- 代替手段として §6 D6 の ns ラップ規約（`(ns <macro-ns> <form>)`）を採用する
+
+将来の reader-level 別機能（`#jq(...)` 系の一般化）は、マクロ機構とは独立した別系統として
+検討する余地を残す（§12 Q8 参照）。
+
+## §5 既存処理系対策の比較（古典論文）
+
+> **[subtask_434c 担当]** Bawden & Rees 1988 / Kohlbecker et al. 1986 / Clinger & Rees 1991 / Dybvig et al. 1992 の一次資料調査・要約を追記予定。
+
+## §6 殿提案の設計方針（D1-D8）
+
+殿のご見解 (2026-05-19) による設計指針を 8 subsection に展開する。
+これらは本 ADR の「決定」の核であり、Phase 2 実装の基本方針となる。
+
+### §6.1 D1 — 展開タイミング（run/compile、read 不採用確定）
+
+> 「マクロ展開は run 時 または compile 時。**read 時には実行しない**」 — 殿のご見解 D1
+
+マクロの展開タイミングは以下の選択肢から確定する:
+
+- **run 時**: ツリーウォーキングインタープリタが評価時にマクロを展開 (Phase 1 実装として自然)
+- **compile 時**: バイトコードコンパイラがコンパイル前にマクロを展開 (Phase 2 実装として理想)
+- **read 時**: Reader 段でマクロを展開 — **本 ADR で不採用確定**
+
+read 不採用の理由: §4.2 で示したとおり、jalo の Reader はシンボルオブジェクトを生成しないため、
+read 時にマクロを展開してもスコープ情報が欠落する。また read 時展開は `#jq(...)` 等の
+reader macro とは別の概念であり（後者は SPEC §5.6 で継続）、混同を避ける。
+
+compile 時 vs run 時の最終選択は Q4 として残置するが、軍師推奨は compile-time
+（SyntaxChecker 直前の static expansion pass）である（V1 軍師推奨を継承）。
+
+既存の `#jq(...)` reader macro（cmd_423 実装済）はマクロ機構とは独立に存続し、
+本 ADR の決定により廃止されるものではない。
+
+### §6.2 D2 — 名前空間分離による (1)(2) 統一解決
+
+> 「衛生問題 (1)(2) を **名前空間分離** で統一的に解決。
+> マクロが挿入する束縛/参照は、展開元とは別の名前空間で名前解決する」 — 殿のご見解 D2
+
+本方針が本 ADR の中核決定事項である。
+
+§3.1 で定義した衛生問題 (1)(2) をいずれも「名前空間の分離」という単一機構で解決する:
+
+**問題 (1) の解決**: マクロが挿入する束縛（例: `tmp`）は `macro-ns` に属する束縛として解決される。
+展開元の参照（例: `tmp`）は `caller-ns` に属する参照として解決される。
+両者は異なる名前空間に属するため衝突しない。
+
+**問題 (2) の解決**: マクロが参照する識別子（例: `cons`）は `macro-ns` で解決される。
+展開元で再定義された `cons` は `caller-ns` に属し、別の束縛として扱われる。
+
+軍師の予備評価（subtask_434a strategy review）では、本方針は
+Bawden explicit renaming（1988）をトークン単位からスコープ単位に昇格した形として
+論理的に成立すると評価している（§9 で詳細検証予定）。
+
+jalo において名前=文字列のみであることは、この scope 単位 ns ラップが唯一の合理的選択肢に近い:
+Bawden のトークン単位 `rename(x)` は jalo では実装不可のため、
+スコープ（式範囲）単位の ns wrap が必須となる（§4.1 参照）。
+
+### §6.3 D3 — namespace 機構同時設計（Phase 2 設計フェーズ既開始）
+
+> 「namespace 機構はマクロと同時設計。設計フェーズは既に Phase 2 に入っている」 — 殿のご見解 D3
+
+マクロ機構と namespace 機構は独立して設計できないため、本 ADR で統合設計する。
+Phase 構造の解釈:
+
+- **Phase 1 (現在)**: インタープリタ実装 — 本 ADR の設計フェーズはここで着手
+- **Phase 2**: バイトコードコンパイラ実装 — マクロ + namespace の実装フェーズ
+
+従来の解釈「Phase 1 = インタープリタ、Phase 2 = コンパイラ」は維持しつつ、
+**設計フェーズ（本 ADR の執筆・確定）は Phase 2 に先行して現在進行中**と捉える。
+これは cmd_427（phase / 1.0.0 概念分離）の「設計と実装を分離して考える」方針と整合する。
+
+ISSUES.md I-02（名前空間）は本 ADR が正式に引き受け、設計対象として展開する（§11.3 参照）。
+
+### §6.4 D4 — defmacro ns 引数構造
+
+> 「`defmacro` (仮) は JSON 引数 + JSON 返却に加え、
+> 展開元の lexical scope における **名前空間も引数として** 渡される構造」 — 殿のご見解 D4
+
+`defmacro` の関数シグネチャ（仮設計）:
+
+```jalo
+; defmacro は 3 種類の情報を受け取る:
+; 1. マクロ引数 (通常の JSON 引数)
+; 2. 展開元の名前空間 (caller-ns)
+; 3. マクロ自身が定義された名前空間 (macro-ns) — 暗黙的に利用可能
+
+(defmacro my-macro [caller-ns arg1 arg2]
+  ; caller-ns を使って arg1/arg2 の名前解決コンテキストを明示
+  (ns macro-ns
+    ["let", [["tmp", (ns caller-ns arg1)]], (ns caller-ns arg2)]))
+```
+
+`caller-ns` は展開呼び出し場所の lexical scope における名前空間を表す。
+これにより、マクロ本体が「展開元コンテキスト」と「マクロ定義コンテキスト」を明確に区別できる。
+
+具体的な `defmacro` 構文（識別子名・引数順序）は Phase 2 実装時に確定するが、
+「展開元 ns を引数として受け取る」という設計方針は本 ADR で確定する。
+
+### §6.5 D5 — ns スペシャルフォーム
+
+> 「ns スペシャルフォーム (仮): `(ns <ns> <expr>)` で `<ns>` 上で `<expr>` の名前解決と評価」 — 殿のご見解 D5
+
+`ns` スペシャルフォームは名前空間を指定して式を評価する:
+
+```jalo
+; 構文
+(ns <namespace> <expr>)
+
+; 意味: <namespace> の名前解決コンテキストで <expr> を評価する
+
+; 例: macro-ns コンテキストで let を評価
+(ns macro-ns (let [tmp 1] tmp))
+; → この let の tmp は macro-ns に属する
+
+; 例: caller-ns コンテキストで変数参照
+(ns caller-ns x)
+; → caller-ns で定義された x を参照
+```
+
+jalo AST（JSON）では `(ns <ns> <expr>)` は配列 `["ns", <ns>, <expr>]` として表現される。
+homoiconic 性は維持される。
+
+`ns` は新たなスペシャルフォームとして SPEC に追加予定（Phase 2 実装段階）。
+現在の SPEC §3 のスペシャルフォーム一覧（`quote` / `if` / `let` / `letrec` / `fn` / `def` / `declare` / `handle` / `raise` / `match`）に加わる。
+
+### §6.6 D6 — マクロ返却値ラップ規約
+
+> 「マクロ返却値の構造: 全体が `(ns <macro-ns> <form>)`、
+> `<form>` 内の展開元部分式は `(ns <ns> <sub-form>)` で包まれる」 — 殿のご見解 D6
+
+マクロが返却する展開形は必ず以下の構造を持つ:
+
+```
+(ns <macro-ns> <expanded-form>)
+```
+
+ここで `<expanded-form>` 内の、展開元由来の部分式（マクロ引数で受け取った式）は
+それぞれ展開元の名前空間 `<caller-ns>` でラップされる:
+
+```
+(ns <macro-ns>
+  (let [tmp <macro-internal-expr>]
+    (ns <caller-ns> <caller-arg>)))
+```
+
+`let*/and/or` 等の de-special-form 候補での適用例（軍師 strategy review より）:
+
+**`and` の展開形 (概念)**:
+```jalo
+; (and a b c) → マクロ返却値
+(ns macro-ns
+  (if (ns caller-ns a)
+    (if (ns caller-ns b)
+      (ns caller-ns c)
+      #false)
+    #false))
+; if と #false は macro-ns、a/b/c は caller-ns → (1)(2) とも解決
+```
+
+**`or` の展開形 (概念・ネスト ns 問題あり)**:
+```jalo
+; (or a b c) → 中間結果に tmp が必要
+(ns macro-ns
+  (let [tmp (ns caller-ns a)]
+    (if tmp tmp
+      (let [tmp (ns caller-ns b)]
+        (if tmp tmp
+          (ns caller-ns c))))))
+; ネストした let の各 tmp が同一 macro-ns 内で同名になる問題は Q3 (Open Question) で扱う
+```
+
+### §6.7 D7 — 責任分担（マクロプログラマ vs 処理系）
+
+> 「マクロプログラマと処理系の責任分担はこれから設計 (Open Question)」 — 殿のご見解 D7
+
+ns ラップ規約（D6）を正しく適用する責任の所在は現時点で未確定:
+
+- **案 A — 処理系が自動ラップ**: `defmacro` の返却値を処理系が自動的に `(ns macro-ns ...)` でラップする。マクロプログラマは ns を意識せずに普通の jalo コードを返せばよい。
+- **案 B — マクロプログラマが明示**: マクロプログラマが `(ns macro-ns ...)` と `(ns caller-ns ...)` を手動で記述する。完全な制御が可能だが学習コストが高い。
+- **案 C — ハイブリッド**: デフォルトは案 A（自動ラップ）だが、`(ns caller-ns ...)` の明示的指定でオーバーライドできる。
+
+詳細は §12 Q5 として残置し、Phase 2 設計時に確定する。
+
+### §6.8 D8 — グローバル ns 定義スペシャルフォーム
+
+> 「グローバル namespace 定義のスペシャルフォームも別途必要」 — 殿のご見解 D8
+
+D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
+新しい名前空間を定義・登録するためのスペシャルフォームが必要:
+
+```jalo
+; 仮称: def-ns (具体的な識別子は Q6 で確定)
+(def-ns <namespace-name>)
+; → <namespace-name> をグローバル ns レジストリに登録
+
+; 使用例
+(def-ns "my-lib")
+(ns "my-lib"
+  (def cons (fn [a b] ...)))  ; my-lib::cons を定義
+```
+
+`def-ns` は `def` と対をなすスペシャルフォームとして SPEC に追加予定。
+グローバル ns レジストリの実装詳細（スコープ・継承・import）は §11.3 参照。
+
+具体的な構文（`def-ns` 以外の命名、引数構造）は Q6 として残置する。
+
+## §7 設計詳細
+
+> **[軍師担当]** §7.1 ns スペシャルフォーム構文と意味論 / §7.2 グローバル ns 定義 form 構文 / §7.3 defmacro 構造詳細 / §7.4 マクロ返却値ラップ規約の形式定義 / §7.5 lexical scope と ns の関係 を追記予定。
+
+## §8 決定要因マトリクス
+
+> **[subtask_434c 担当]** 衛生 (1)/(2) / 表現力 / 実装難度 / jalo 制約整合 / Phase 2 互換 × V1 Option A/C / Bawden syntactic closures / Dybvig syntax-case / 殿提案 ns 分離 のマトリクスを追記予定。
+
+## §9 論理検証（Validation）
+
+> **[軍師担当 — Bloom L6 重点]** (1)(2) 統一解決の論理証明 / Bawden explicit renaming との関係 / 反例の検討 (R1 anaphoric / R2 macro-to-macro / R3 dynamic ns) / de-special-form 候補での具体検証 を追記予定。
+
+## §10 比較（Comparison）
+
+> **[subtask_434c 担当]** 他 Lisp のシンボルオブジェクト方式 (Scheme syntax-case) と jalo の ns ラップ方式が表現力で同等かを具体例で検証予定。
+
+## §11 実装ロードマップ
+
+### §11.1 マクロ → バイトコードコンパイラ順序（D3 由来）
+
+**マクロ機構をバイトコードコンパイラに先行して実装する** (V1 §推奨 D1 を継承・強化)。
+
+理由:
+1. 現存スペシャルフォームの一部をマクロとして再実装（de-special-form）することで、
+   バイトコードコンパイラが扱うべきスペシャルフォームを削減できる
+2. §6 D3 のとおり、マクロ設計と namespace 設計は同時に行う必要があり、
+   コンパイラ設計はこれらが確定した後に行うのが合理的
+3. cmd_427（phase/1.0.0 概念分離）で「設計フェーズは Phase 2 に既開始」と裁可済であり、
+   本 ADR の確定がコンパイラ実装への前提となる
+
+Phase 2 実装順序（案）:
+1. namespace 機構の基本実装（`def-ns` / `ns` スペシャルフォーム、インタープリタ段で動作）
+2. `defmacro` 基本実装（展開器、ns 引数対応）
+3. de-special-form 移行（§11.2 確定候補から順次）
+4. バイトコードコンパイラ実装（ns + macro 確立後）
+
+### §11.2 de-special-form 候補リスト draft
+
+現在のスペシャルフォームのうち、マクロとして再実装可能なものを以下に分類する（SPEC §3/§4/§5 参照）:
+
+**確定 4 件（Phase 2 で必ずマクロ化）**:
+
+| スペシャルフォーム | 根拠 | ns ラップ適用可否 |
+|---|---|---|
+| `let*` | SPEC §4.2 でマクロ機構への移行を既予告 | ◎ (確認済 — 軍師 strategy review) |
+| `quasiquote` | SPEC §5.2 でマクロ機構への移行を既予告 | ◎ (§4.3 と整合、ただし Phase 2 実装時に具体プロトタイプ要) |
+| `and` | 短絡評価を `if` ネストに展開可能 (SPEC §4.5) | ◎ (確認済 — 軍師 strategy review) |
+| `or` | 短絡評価を `if` ネストに展開可能 (SPEC §4.5) | ○ (ネスト ns 生成戦略の確定が必要 — §12 Open Question) |
+
+**Future 候補 3 件（Phase 2 以降で検討）**:
+
+| スペシャルフォーム | 検討優先度 | 備考 |
+|---|---|---|
+| `cond` | 高 | `if` ネストへの展開が自然 |
+| `when` | 中 | `if` + `#null` への展開 |
+| `unless` | 中 | `if` + `#null` への展開 |
+
+**core スペシャルフォーム — マクロ化しない 10 件**:
+
+`quote` / `if` / `let` / `letrec` / `fn` / `def` / `declare` / `handle` / `raise` / `match`
+
+これらは jalo の計算モデルの核をなし、マクロ化すると循環依存または意味論の複雑化を招く。
+
+de-special-form の実装優先度と別 cmd 化は §12 Q7 参照。
+
+### §11.3 namespace 機構の段階導入
+
+I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導入計画を提示する:
+
+**Stage 1 — グローバル ns 定義**:
+- `def-ns` スペシャルフォームでグローバル ns レジストリを確立
+- `(ns <ns> <expr>)` での名前解決コンテキスト切り替え
+- 主目的: マクロ展開の衛生問題 (1)(2) 解決に必要な最小機構
+
+**Stage 2 — lexical ns**:
+- lexical scope と ns の関係を確立
+- クロージャが参照する ns の継承規則確定（§12 Q2 の解決が必要）
+- 主目的: マクロ間連携（マクロ A がマクロ B を呼ぶ時の ns 継承）のサポート
+
+**Stage 3 — ns import / 可視性制御**:
+- `(import-ns <ns>)` 等で別 ns の束縛を現在 ns に取り込む機構
+- 主目的: モジュールシステムの基盤
+- 本 ADR のスコープ外（Phase 2 以降で別 ADR 化の候補）
+
+## §12 未解決の問い（Open Questions）
+
+以下の問いは Phase 2 実装前に確定が必要である（または Phase 2 実装段階で確定する）。
+
+**足軽 A (本 subtask) 担当**:
+
+- **Q4: 展開タイミング compile-time / run-time の最終確定**  
+  §6.1 D1 により read 不採用は確定。run 時 vs compile 時の選択が残る。  
+  軍師推奨: compile-time（SyntaxChecker 直前の static expansion pass、V1 Q3 継承）。  
+  Phase 2 実装着手前に殿のご裁可を仰ぐ。
+
+- **Q5: 責任分担（マクロプログラマ vs 処理系）の詳細**  
+  §6.7 D7 で提示した案 A/B/C（自動ラップ / 手動 / ハイブリッド）のいずれを採るか。  
+  Phase 2 `defmacro` 実装設計時に確定する。
+
+- **Q7: de-special-form 移行順序と別 cmd 化**  
+  §11.2 の確定 4 件（let\*/quasiquote/and/or）の実装優先度・依存関係・別 cmd 分割方針。  
+  `let*` と `and`/`or` は独立して実装可能だが、`quasiquote` はデータ構築専用意味論を
+  変えないよう慎重な設計が必要。Phase 2 着手時に別 cmd として計画する。
+
+- **Q8: 将来の reader-level 別機能の検討条件**  
+  V1 Q9 を継承。`#jq(...)` 系の `#<name>(...)` 一般化（Option E 由来の `defreader` 構想）を
+  将来独立機能として再評価する際の条件・タイミング・スコープ。  
+  本 ADR のマクロ機構とは独立した別系統として検討する（§4.3 参照）。
+
+**Q1/Q2/Q3/Q6（軍師統合時に追記）**:
+
+- Q1: anaphoric パターンの取扱い（unhygienic フラグ / inject-into-caller-ns / 不採用）
+- Q2: マクロ間連携時の ns 継承規則（定義時 ns / 展開時 ns / caller-ns）
+- Q3: ネスト let 内の同名 tmp の ns 生成戦略（`or` 展開の実装問題）
+- Q6: グローバル ns 定義 form の構文（`def-ns` 仮称の最終決定）
+
+## §13 参考文献
+
+> **[subtask_434c 担当]** Bawden / Kohlbecker / Clinger & Rees / Dybvig 等の一次資料 + 公式 docs を access date 付きで追記予定。
+
+以下は足軽 A が確認した引用（本 draft に使用済）:
+
+| 処理系/規格 | リソース | URL | アクセス日 |
+|---|---|---|---|
+| Common Lisp | HyperSpec — Function `GENSYM` | https://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm | 2026-05-19 |
+| Clojure | Macros（defmacro 公式仕様） | https://clojure.org/reference/macros | 2026-05-19 |
+| Clojure | Reader — Syntax-quote（auto-gensym） | https://clojure.org/reference/reader#syntax-quote | 2026-05-19 |
+| Scheme | R7RS small §4.3 Macros（PDF） | https://small.r7rs.org/attachment/r7rs.pdf | 2026-05-19 |
+| Scheme | R6RS §12 Syntax-case | https://www.r6rs.org/final/html/r6rs/r6rs-Z-H-16.html | 2026-05-19 |
+| jalo | SPEC §4.2 let\* / §4.5 and・or / §5.2 quasiquote | （本リポジトリ docs/SPEC.md） | 2026-05-19 |
+| jalo | DECISION_MACRO.md V1 (Superseded) | （本リポジトリ docs/DECISION_MACRO.md） | 2026-05-19 |
+| jalo | DECISION_TCO.md（ADR-001） | （本リポジトリ docs/DECISION_TCO.md） | 2026-05-19 |
