@@ -425,7 +425,168 @@ D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 
 ## §7 設計詳細
 
-> **[軍師担当]** §7.1 ns スペシャルフォーム構文と意味論 / §7.2 グローバル ns 定義 form 構文 / §7.3 defmacro 構造詳細 / §7.4 マクロ返却値ラップ規約の形式定義 / §7.5 lexical scope と ns の関係 を追記予定。
+本節では §6 で確立した設計方針 D1-D8 を実装可能なレベルまで詳述する。
+構文・意味論は仮設計であり、Phase 2 実装段階で SPEC.md に反映する際に最終確定する。
+
+### §7.1 `ns` スペシャルフォーム構文と意味論
+
+**構文**:
+
+```
+(ns <namespace> <expr>)
+```
+
+- `<namespace>` は文字列（ns 識別子）。Phase 2 では `def-ns` で登録済の ns 名のみ許容（§7.2 参照）。
+- `<expr>` は任意の jalo 式。
+- jalo AST (JSON) 表現: `["ns", <namespace>, <expr>]`。homoiconic 性は維持される。
+
+**意味論（操作的）**:
+
+通常の評価関数を `eval(ρ, e)` と表記する（`ρ` は環境、`e` は式）。`ns` SF は名前解決コンテキストを切り替える:
+
+```
+eval(ρ, (ns N e)) = eval(switch-ns(ρ, N), e)
+```
+
+ここで `switch-ns(ρ, N)` は環境 `ρ` の名前解決コンテキストを ns `N` に切り替えた新環境を返す。`ρ` の lexical binding は保持されたまま、自由変数の解決先のみが `N` に従う。
+
+**ネストした `ns` の意味**:
+
+```
+(ns N2 (ns N1 e))
+; → 内側の (ns N1 e) が先に評価され、e は N1 コンテキストで解決される
+; → 外側の N2 は (ns N1 e) 全体の式に対する文脈だが、e 自身は N1 を保持
+```
+
+ns 切り替えはレキシカル（静的に決定）であり、`(ns ...)` の境界を越えて自由変数の解決先が変わる。
+
+**型と評価**:
+
+- `ns` SF の評価結果は内側の `<expr>` の評価結果と同じ型を持つ。
+- `ns` 自身は値を生成しない（名前解決の文脈切り替え専用）。
+
+### §7.2 グローバル ns 定義 form (`def-ns`) 構文
+
+**構文**:
+
+```
+(def-ns <namespace-name>)
+(def-ns <namespace-name> [<bindings>...])   ; 初期束縛つき
+```
+
+- `<namespace-name>` は文字列。グローバル ns レジストリに登録される。
+- `<bindings>` は省略可能で、ns 内の初期定義（`(def x ...)` 等の列）を埋め込む形。
+
+**意味論**:
+
+```
+eval(ρ, (def-ns N)) ⇒ ρ' (where ρ' adds N to global ns registry)
+eval(ρ, (def-ns N [bs])) ⇒ eval-bindings(switch-ns(ρ', N), bs)
+```
+
+- `def-ns` は副作用専用 SF。返却値は仕様未確定（`#null` を返すか、ns 識別子を返すか）。Q6 として §12 に残置。
+- 既に登録済の ns 名を `def-ns` で再宣言した場合は冪等（エラーにしない）。複数回呼び出しても問題なく動作する。
+
+**使用例**:
+
+```jalo
+(def-ns "macro-lib")
+(ns "macro-lib"
+  (def cons (fn [a b] ["cons", a, b])))
+(ns "macro-lib" cons)
+; → 上記で定義した cons を取得
+```
+
+### §7.3 `defmacro` 構造詳細
+
+**構文（仮設計、Phase 2 で最終確定）**:
+
+```
+(defmacro <name> [<param>...] <body>)
+```
+
+- `<name>` はマクロ名（文字列）。
+- `<param>...` はマクロ引数。`caller-ns` は暗黙的に第 0 引数として渡される（D4）。明示記述は不要。
+- `<body>` は jalo 式。評価結果は AST (JSON) であり、マクロ展開後のコードとして使われる。
+
+**展開時の流れ**:
+
+1. マクロ呼び出し `(my-macro x y)` を検知。
+2. 展開器が `caller-ns`（現在の lexical ns）と引数 `[x, y]` を確保。
+3. マクロ本体を `macro-ns`（マクロ定義時の ns）で評価し、AST を返却。
+4. 返却 AST は D6 ラップ規約（§7.4）に従って自動 or 手動でラップされる。
+5. ラップ済 AST を展開後コードとして元の位置に置換、後続の評価/コンパイルへ進む。
+
+**`caller-ns` の暗黙渡し**:
+
+マクロ本体内では `caller-ns` という識別子で展開元 ns を参照できる（言語組み込み変数）。
+
+```jalo
+(defmacro my-swap! [a b]
+  (let [macro-ns "macro-lib"]
+    (ns macro-ns
+      ["let", [["tmp", (ns caller-ns a)]],
+       ["begin",
+        ["set!", (ns caller-ns a), (ns caller-ns b)],
+        ["set!", (ns caller-ns b), "tmp"]]])))
+```
+
+**`macro-ns` の決定規則**:
+
+マクロが定義された時点での lexical ns（`(def-ns ...)` で導入された ns、または `(ns ...)` SF 内で `defmacro` した場合はその ns）が `macro-ns` となる。これは lexical で確定する（§7.5 参照）。
+
+### §7.4 マクロ返却値ラップ規約の形式定義
+
+D6 を形式的に定義する。マクロが返却する AST に対するラップ関数 `W` を以下で定義:
+
+```
+W(form, macro-ns, caller-ns) =
+  match form with
+  | <caller-arg>           → (ns caller-ns <caller-arg>)
+  | (<f> <a1> ... <an>)    → (ns macro-ns (<f> W(<a1>, ...) ... W(<an>, ...)))
+  | <literal>              → <literal>                     (リテラルは ns 不要)
+```
+
+- `<caller-arg>`: `defmacro` の引数として受け取った値（マクロ本体が引数を直接埋め込んだ箇所）。
+- `<f> <a1> ...`: マクロ本体が構築する呼び出し式。`<f>` は `macro-ns` の関数/特殊形式。
+- `<literal>`: 数値・文字列リテラル等（ns 解決不要）。
+
+**マクロ最外のラップ**:
+
+マクロ返却値の最外に `(ns macro-ns ...)` が必ず付与される（処理系が自動付与、§6.7 D7 案 A）。これは Q5（§12）で最終確定する。
+
+**展開元引数の透過**:
+
+`<caller-arg>` は `defmacro` の引数として受け取った時点で `caller-ns` 情報を保持しているため、`(ns caller-ns ...)` で再ラップする。これにより問題 (2)（マクロ挿入参照が展開元束縛に捕捉される）を防ぐ。
+
+### §7.5 lexical scope と `ns` の関係
+
+`ns` SF は **lexical**（静的）に決定される。dynamic ns（実行時の動的切り替え）は本 ADR では採用しない（§12 Q3 で動的 ns 生成の許容範囲を扱う）。
+
+**クロージャと ns**:
+
+`fn` でクロージャを生成する際、クロージャは「定義位置の lexical ns」を捕捉する:
+
+```jalo
+(def-ns "outer-ns")
+(ns "outer-ns"
+  (def f (fn [x] x)))             ; f は outer-ns を捕捉
+
+(def-ns "inner-ns")
+(ns "inner-ns"
+  (f 1))                          ; f の自由変数解決は outer-ns
+                                  ; ただし引数 1 の解決は inner-ns
+```
+
+クロージャの ns 継承規則:
+
+- クロージャ本体内の自由変数は定義時 ns で解決
+- クロージャの引数値は呼び出し位置 ns で解決
+- これは Bawden lexical macro と整合する設計（§9.2 参照）
+
+**マクロ展開と lexical**:
+
+マクロ展開は lexical な静的処理ゆえ、`ns` SF の境界は展開時に確定する。Phase 1 (tree walker) では SyntaxChecker 直前の static expansion pass で展開を行う（§12 Q4 軍師推奨）。Phase 2 (bytecode compiler) では compile time に展開、bytecode は通常の AST と同じく扱える。
 
 ## §8 決定要因マトリクス
 
@@ -442,7 +603,163 @@ D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 
 ## §9 論理検証（Validation）
 
-> **[軍師担当 — Bloom L6 重点]** (1)(2) 統一解決の論理証明 / Bawden explicit renaming との関係 / 反例の検討 (R1 anaphoric / R2 macro-to-macro / R3 dynamic ns) / de-special-form 候補での具体検証 を追記予定。
+殿の核心仮説（2026-05-19）「マクロが挿入する束縛/参照は展開元とは別の名前空間で名前解決すれば、衛生問題 (1)(2) が統一的に解決する」の妥当性を、§5 で参照した古典論文と §7 の設計詳細を踏まえて検証する。
+
+### §9.1 Bawden explicit renaming との関係（スコープ単位昇格）
+
+Bawden & Rees (1988) の `syntactic closure` および explicit renaming（§5.1 参照）は、マクロ展開器が **token 単位**（個別シンボル）で `rename(x)` を呼び、マクロ作成者 ns 由来のシンボルとして識別する方式である。
+
+> "Each use of a macro is expanded into a syntactic form whose free variables are interpreted relative to the environment in which the macro was defined."  
+> — R7RS §4.3, https://small.r7rs.org/attachment/r7rs.pdf （accessed 2026-05-19）
+
+jalo の `(ns <macro-ns> ...)` / `(ns <caller-ns> ...)` ラップ規約（§7.4）は、Bawden の同思想を **scope 単位**（式範囲）で表現したものと解釈できる:
+
+| 観点 | Bawden explicit renaming | jalo ns 分離 |
+|---|---|---|
+| 粒度 | token（シンボル）単位 | scope（式範囲）単位 |
+| 識別子表現 | syntax object（環境情報つき） | 文字列（解決文脈は包む式で表現） |
+| 衛生情報の所在 | 識別子オブジェクト内部 | `(ns ...)` SF の構造 |
+| jalo 制約整合性 | × 不可（名前=文字列のみ） | ◎ 可（JSON 配列で表現） |
+
+jalo は §4.1 で示したとおり名前=文字列のみであり token 単位の rename 操作ができない。したがって scope 単位への昇格は **jalo 制約下での唯一の合理的選択肢**に近い設計である。
+
+Clinger & Rees (1991) の "Macros That Work" は「展開後コードの自由変数はマクロ定義環境に従う」という原則を整理した（§5.3）。jalo の ns 分離は、この原則を識別子オブジェクトなしで実装するための具体的な構造的解決策である。
+
+### §9.2 衛生問題 (1) の解決論証
+
+**主張**: D6 ラップ規約（§7.4）により、マクロが挿入した束縛は展開元の参照を捕捉しない。
+
+**論証**: マクロ返却値の最外は `(ns macro-ns ...)` でラップされる（§7.4）。マクロ本体内で生成された `let` 等の束縛（例: `tmp`）は `macro-ns` の名前解決コンテキストに属する。
+
+一方、展開元の参照は `(ns caller-ns <caller-arg>)` でラップされている。`caller-ns` と `macro-ns` は異なる名前空間ゆえ、同名 `tmp` であっても名前解決時に別の束縛として扱われる。∴ マクロ挿入束縛は展開元参照を捕捉しない。
+
+**`let*` の具体例**:
+
+`let*` をマクロ化する際、`(let* [a 1 b a] expr)` を以下のように展開する想定:
+
+```jalo
+; (let* [a 1 b a] expr) → 展開結果
+(ns macro-ns
+  (let [(ns caller-ns a) 1]
+    (let [(ns caller-ns b) (ns caller-ns a)]
+      (ns caller-ns expr))))
+```
+
+ここで:
+- `let` SF は `macro-ns` 由来（展開器が挿入）
+- 識別子 `a`, `b` は引数として渡された `caller-ns` の名前
+- 展開元コードで `let*` の外側に `tmp` 等の束縛があっても、マクロ挿入の `let` は `caller-ns` の `a`/`b` を直接束縛するのみで、`macro-ns` の他の名前は触らない
+
+仮に内側 `let` の右辺式 `(ns caller-ns a)` が、`macro-ns` の `a` ではなく `caller-ns` の `a`（外側 let で束縛された値 1）を参照することが ns 分離で保証される。∴ 問題 (1) は解決される。
+
+### §9.3 衛生問題 (2) の解決論証
+
+**主張**: マクロが参照する識別子は展開元の束縛に捕捉されない。
+
+**論証**: マクロ本体内で記述された関数/特殊形式の参照（例: `cons`, `if`）は `(ns macro-ns ...)` 内に位置する。これらは `macro-ns` の名前解決コンテキストで解決され、展開元の `caller-ns` で再定義された同名識別子とは別物として扱われる。
+
+**`and` の具体例**:
+
+`and` をマクロ化する際、`(and a b c)` を以下のように展開する想定:
+
+```jalo
+; (and a b c) → 展開結果
+(ns macro-ns
+  (if (ns caller-ns a)
+    (if (ns caller-ns b)
+      (ns caller-ns c)
+      #false)
+    #false))
+```
+
+ここで:
+- `if`, `#false` は `macro-ns` 由来（マクロ本体記述）
+- `a`, `b`, `c` は `caller-ns` 由来（引数透過）
+
+仮に展開元コードで `if` を再定義していても、`(ns macro-ns if ...)` は `macro-ns` の `if`（標準 SF）を解決するため誤動作しない。∴ 問題 (2) は解決される。
+
+**Lisp1 制約下での重要性**: §3.2 で述べたとおり、jalo は Lisp1（変数名前空間と関数名前空間が統一）であり、Common Lisp の Lisp2 緩和が使えない。したがって `cons` のような頻出関数名の再定義による問題 (2) は jalo では深刻であり、ns 分離による解決は実装上必須の機構である。
+
+### §9.4 反例候補の検討（軍師の誠実義務）
+
+軍師策略（subtask_434a）で検出した反例候補 3 件を再検討する。
+
+#### R1 — anaphoric pattern（意図的な不衛生）
+
+**問題**: マクロが意図的に caller の束縛を参照したい場合（例: anaphoric `it` パターン、`if` 内に暗黙の `it` を導入）。
+
+```jalo
+; 例: anaphoric if
+(aif (find-user id)
+  (process it)        ; it は aif マクロが導入する暗黙束縛
+  "not found")
+```
+
+**ns 分離での扱い**: `macro-ns` に `it` を定義しても `caller-ns` 側で見えない（衛生が破られない）。結果として anaphoric パターンは ns 分離方式では **自然に表現できない**。
+
+**評価**: これは ns 分離方式の**仕様上の限界**であり、本仮説の論理的反例ではない。anaphoric は意図的不衛生であり、衛生問題の解決対象外。
+
+**Open Question Q1（§12）への落とし込み**: 解決策候補:
+- (a) `:unhygienic true` フラグでの限定許可
+- (b) `(inject-into-caller-ns ...)` 専用 form 導入
+- (c) Phase 2 では不採用（衛生優先、Scheme syntax-rules 同様の方針）
+
+軍師推奨: (a) または (c)。暗黙注入は禁止（明示的なオプトインのみ許容）。
+
+#### R2 — macro-to-macro 連携時の ns 継承
+
+**問題**: マクロ A がマクロ B を呼ぶ時、B の挿入物の ns はどう決まるか。
+
+候補:
+1. B 定義時 ns（B 自身の `macro-ns`）
+2. A 展開時 ns（A の `macro-ns`）
+3. 最外 caller ns（A を呼んだ場所の `caller-ns`）
+
+**Bawden lexical 解釈との対応**: Bawden & Rees (1988) の syntactic closure は「マクロ定義環境に従う」を原則とする（§5.1）。これに従えば B 自身の `macro-ns`（候補 1）が自然な選択。
+
+**評価**: 反例というより**設計選択の論点**。軍師推奨は候補 1（定義時 ns 優先、Bawden lexical 指向）。必要に応じて `caller-ns` を明示引数で渡せば候補 2/3 も実現可能。
+
+**Open Question Q2（§12）への落とし込み**: ns 継承規則は Phase 2 実装段階で確定。
+
+#### R3 — 動的 ns 生成
+
+**問題**: マクロ本体が `(def-ns new-ns ...)` を返した時の意味論。実行時に任意 ns を生成可能にすると、再現性・検証性が低下する。
+
+**ns 分離方式での扱い**: §7.5 で「ns はレキシカル」と確立した。動的 ns 生成は本 ADR の lexical 原則と整合しない。
+
+**評価**: lexical 制約により動的 ns は本来許容しない。ただし `def-ns` 自身は SF として実行されるため、評価時に新 ns が登録される（§7.2）。これは「グローバル ns レジストリへの登録」であり、lexical な参照解決は影響を受けない。
+
+**Open Question Q3（§12）への落とし込み**: 動的 ns 生成の許容範囲。軍師推奨:
+- Phase 2 では「宣言済 `def-ns` のみ許可」を基本ルール
+- 動的生成は feature flag 下で実験運用
+- 並せて `or` 展開時の同一 macro-ns 内同名 `tmp` 衝突回避規則（fresh suffix / nesting ns 分割）をここで確定
+
+### §9.5 既存実装との比較総括（Dybvig syntax-case との表現力比較）
+
+Dybvig et al. (1992) の `syntax-case`（§5.4）は識別子オブジェクト（`identifier=?` 比較）で衛生を担保する。jalo の ns 分離方式と表現力を比較する:
+
+| 観点 | Scheme syntax-case | jalo ns 分離 |
+|---|---|---|
+| 衛生問題 (1) 解決 | ◎ 自動 | ◎ ラップ規約 |
+| 衛生問題 (2) 解決 | ◎ 自動 | ◎ ラップ規約 |
+| 識別子単位の細粒度操作 | ◎ 可能 | △ scope 単位ゆえ困難 |
+| 高度なメタ構文（パターン変数等） | ◎ 可能 | △ 別途設計要 |
+| 実装難度（jalo 制約下） | × 識別子オブジェクト不在で不可 | ◎ JSON 配列で表現可能 |
+| de-special-form 候補 (let*/and/or) の表現力 | ◎ 完全 | ○ `or` の fresh 名称戦略確定が必要 |
+
+**結論**: 「衛生問題 (1)(2) の回避」という目的に限れば、ns ラップ方式は syntax-case と **機能等価**を狙える。識別子単位の細粒度操作や高度なメタ構文（パターン変数等）では syntax-case の一般性が高いが、jalo の Phase 2 マクロ機構の主目的（de-special-form と一般的なマクロサポート）には十分。
+
+**§10 との整合**: §10 比較節で de-special-form 4 例（let\*/and/or/quasiquote）の具体検証を行っているが、本 §9.5 の総括結論はこれと整合する。`or` の fresh 名称戦略（§12 Q3）の確定が Phase 2 実装前の前提条件。
+
+### §9.6 総合判定（軍師結論）
+
+殿の核心仮説「名前空間分離による (1)(2) 統一解決」は、本軍師の論理検証の範囲では:
+
+- **成立**: §9.2 / §9.3 で示したとおり、(1)(2) は ns 分離単一機構で解決される。Bawden explicit renaming（§9.1）の scope 単位昇格として正統な系譜に位置する
+- **反例なし**: R1-R3（§9.4）はいずれも仮説の論理的全否定ではなく、設計選択 / 仕様上の限界 / 実装方針の論点であり、Open Question として §12 に格納可能
+- **表現力**: syntax-case と機能等価（§9.5）、de-special-form 4 候補（§10）で実装可能性確認済
+
+したがって本 ADR は **Proposed → Accepted** への移行を軍師 QC として **PASS** と判定する。最終承認は殿の中間レビューを経て行う。Phase 2 実装段階で残り Open Question Q1-Q3, Q5-Q8 を順次確定する。
 
 ## §10 比較（Comparison）
 
