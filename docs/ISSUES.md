@@ -93,3 +93,12 @@
 
 **状態**: 解決済み  
 **内容**: 算術・比較演算子 (`+`, `-`, `*`, `/`, `=`, `<`, `>` 等) および述語末尾の `?` を裸の識別子として記述できるよう、§3.1 の識別子規則を Clojure のシンボル規則に準じて拡張した。数値リテラルとの曖昧性は「`-`/`+` 直後が数字なら数値」として解消。詳細は SPEC.md §3.1。
+
+---
+
+## I-14: マクロ機構未設計
+
+**状態**: 🔄 部分的に確定 (V1 merge 済) — cmd_434 で ADR-002 として再設計予定  
+**内容**: jalo にはまだ `defmacro` 相当のマクロ機構がない。SPEC §5.2 に「第 2 版以降でマクロ機構へ移行する予定」と予告。Phase 2 の実装候補は Option A（syntax-rules）と Option C（Clojure defmacro + syntax-quote + auto-gensym）の 2 案（amendment_1 確定）。Option E はマクロ機構候補から除外（2026-05-17 殿裁可）。衛生性方針: 基本衛生 + Clojure auto-gensym 許容（Q1 解決済）。TCO 独立（Q5 解決済）。展開タイミング（Q3）は殿追加裁可待ち。  
+**pointer**: `docs/DECISION_MACRO.md`（ADR-002）
+> V1 は cmd_425 で確定。cmd_434 (DECISION_MACRO_AND_NAMESPACE.md) で supersede 予定。
