@@ -187,7 +187,43 @@ Clojure では syntax-quote (`` ` ``) を使ってマクロ本体でシンボル
 
 ## §5 既存処理系対策の比較（古典論文）
 
-> **[subtask_434c 担当]** Bawden & Rees 1988 / Kohlbecker et al. 1986 / Clinger & Rees 1991 / Dybvig et al. 1992 の一次資料調査・要約を追記予定。
+### §5.1 Bawden & Rees 1988 — Syntactic Closures
+
+**一次資料**:
+- ACM DOI: https://dl.acm.org/doi/10.1145/62678.62687 (accessed 2026-05-19, bot 制限で HTTP 403 応答)
+- MIT DSpace: https://dspace.mit.edu/handle/1721.1/6036 (accessed 2026-05-19, HTTP 405 応答につき本文確認は継続調査)
+
+Bawden & Rees (1988) は、衛生マクロ問題を「識別子を単なる文字列ではなく、環境情報つきで扱う」方向で整理した代表的初期研究である。とくに syntactic closure の立場では、展開時に「どの環境でその識別子を解決すべきか」を保持するため、単純な名前衝突回避以上に、参照の意図を保存できる。
+
+本 ADR の観点では、Bawden 流の核心は「マクロ展開器が挿入した識別子に、展開元と独立した解決文脈を与える」点である。jalo は syntax object を持たないため token 単位の情報保持はできないが、式範囲に `(ns <macro-ns> ...)` / `(ns <caller-ns> ...)` を導入する設計は、この発想を scope 単位で再構成したものと解釈できる。
+
+### §5.2 Kohlbecker et al. 1986 — Hygienic Macro Expansion
+
+**一次資料**:
+- ACM DOI: https://dl.acm.org/doi/10.1145/319838.319859 (accessed 2026-05-19, bot 制限で HTTP 403 応答)
+
+Kohlbecker et al. (1986) は hygiene 概念を明示し、マクロ展開で発生する捕捉バグを体系的に定義した。ここで整理された問題設定は、本 ADR の衛生問題 (1)(2) と対応し、後続の `syntax-rules`/`syntax-case` 系での「展開器が自動で捕捉を避ける」方向の基礎を作った。
+
+本 ADR での含意は明確で、衛生問題を「実装者の慣習」ではなく「言語機構として解決すべき要件」として扱う必要がある点にある。jalo でも同じく、`gensym` 相当の人手運用ではなく、ns 分離規約を言語レベルで導入することで再現性のある防止策を与える。
+
+### §5.3 Clinger & Rees 1991 — Macros That Work
+
+**一次資料**:
+- ACM DOI: https://dl.acm.org/doi/10.1145/99583.99607 (accessed 2026-05-19, bot 制限で HTTP 403 応答)
+- University of Oregon PDF: https://scholarsbank.uoregon.edu/server/api/core/bitstreams/12fed7c3-fd49-4ae8-97e4-6bbb156aaba6/content (accessed 2026-05-19)
+
+Clinger & Rees (1991) は、衛生マクロを block-structured 言語へ実装する際の要件を整理し、「展開後コードの自由変数はマクロ定義環境に従う」という原則を実用水準で扱った。これは問題 (2)（展開元束縛への誤捕捉）を防ぐための規範として重要である。
+
+jalo の ns 分離案に引き寄せると、`macro-ns` と `caller-ns` を明示して式単位で切り替える設計は、この原則を syntax object なしで近似するための実装戦略に相当する。すなわち「参照はどの環境で意味を持つか」を返却 AST 内に残す設計である。
+
+### §5.4 Dybvig et al. 1992 — Syntactic Abstraction in Scheme
+
+**一次資料**:
+- Springer: https://link.springer.com/article/10.1007/BF01806308 (accessed 2026-05-19)
+
+Dybvig et al. (1992) は `syntax-case` の理論と実装を提示し、`syntax-rules` より高い表現力を持ちながら衛生を維持する道筋を示した。識別子同一性（後の `identifier=?` 系）を軸に、手続き的マクロ変換と衛生保証を両立した点が大きい。
+
+本 ADR に対しては、「高度なマクロは衛生とトレードオフではない」ことを示す先行事例として効く。jalo は syntax-case そのものは採れないが、ns ラップで参照解決文脈を保存すれば、de-special-form を進めつつ衛生要求を満たす設計余地がある。
 
 ## §6 殿提案の設計方針（D1-D8）
 
@@ -393,7 +429,16 @@ D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 
 ## §8 決定要因マトリクス
 
-> **[subtask_434c 担当]** 衛生 (1)/(2) / 表現力 / 実装難度 / jalo 制約整合 / Phase 2 互換 × V1 Option A/C / Bawden syntactic closures / Dybvig syntax-case / 殿提案 ns 分離 のマトリクスを追記予定。
+評価記号: ◎ = 強い適合、○ = 実用適合、△ = 条件付き、× = 不適合
+
+| 評価軸 | V1 Option A (syntax-rules) | V1 Option C (Clojure defmacro+auto-gensym) | Bawden syntactic closures | Dybvig syntax-case | 殿提案 ns 分離 |
+|---|---|---|---|---|---|
+| (i) 衛生問題 (1) 解決 | ◎: 展開器主導の自動衛生で束縛衝突を防げる | ○: auto-gensym で一時変数衝突を回避できるが規約依存が残る | ◎: 展開器が文脈つきで挿入識別子を扱い衝突を抑制できる | ◎: syntax object と衛生規則で捕捉を体系的に防ぐ | ◎: `macro-ns` へ隔離するため caller 側識別子を汚染しない |
+| (ii) 衛生問題 (2) 解決 | ○: 定義環境参照を保持するが高度ケースは制約が強い | ○: syntax-quote で ns 修飾可能だが quasiquote 規約依存 | ◎: closure 環境で自由変数参照先を保持できる | ◎: `identifier` 同一性比較で参照捕捉を抑制できる | ◎: 挿入参照を `macro-ns` で解決し caller 捕捉を分離する |
+| (iii) 表現力 | △: パターン中心で手続き的変換が難しい | ◎: Lisp マクロとして高い変換自由度がある | ○: 衛生を保ちつつ実用変換可能だが実装負荷が高い | ◎: 手続き的変換 + 衛生で高表現力 | ○: 目的の衛生要件は満たすが ns 運用規則の設計が必要 |
+| (iv) 実装難度 | △: 仕様は単純だが jalo AST 制約に合わせた実装が別途必要 | ○: 実装は現実的だが Clojure 流 quasiquote 非採用で再設計要 | ×: jalo には syntax object 不在で直接実装が困難 | ×: identifier object 基盤がなく直接導入不可 | ○: `ns` SF とラップ規約の追加で到達可能 |
+| (v) jalo 制約整合 | ×: シンボル構造前提が強く JSON 文字列 AST と齟齬 | △: 一部思想は流用できるが quasiquote 拡張が不適合 | ×: トークン単位リネーム前提が JSON 文字列モデルと不整合 | ×: syntax object 前提で現行 Reader/AST と不整合 | ◎: JSON→JSON 変換を維持したまま衛生要件を扱える |
+| (vi) Phase 2 互換 | △: 基盤改造量次第で遅延しうる | ○: Phase 2 で導入しやすいが仕様差分整理が必要 | △: 直接導入は難しく概念転写が前提 | △: 直接導入不可、概念参照のみ実用 | ◎: namespace 設計と同時に Phase 2 へ接続できる |
 
 ## §9 論理検証（Validation）
 
@@ -401,7 +446,40 @@ D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 
 ## §10 比較（Comparison）
 
-> **[subtask_434c 担当]** 他 Lisp のシンボルオブジェクト方式 (Scheme syntax-case) と jalo の ns ラップ方式が表現力で同等かを具体例で検証予定。
+本節では「Scheme syntax-case の識別子オブジェクト方式」と「jalo の ns ラップ方式」が、de-special-form 候補でどこまで同等の表現力を持つかを検証する。
+
+### §10.1 比較観点
+
+- syntax-case 側: 識別子にスコープ情報を持たせ、`identifier` 同一性で衛生を担保する。
+- jalo 側: 識別子は文字列のまま、式を `(ns <scope> <expr>)` で包み、名前解決コンテキストを明示する。
+
+結論として、**衛生問題 (1)(2) の回避という目的に限れば、ns ラップ方式で機能同等を狙える**。ただし、識別子単位の細粒度操作や高度なメタ構文の扱いでは syntax-case のほうが一般性が高い。
+
+### §10.2 de-special-form 具体検証（4 例）
+
+#### 1) `let*`
+
+`let*` は逐次束縛を `let` のネストに展開するだけであり、挿入される束縛は `macro-ns`、利用者式は `caller-ns` に分離できる。構文展開が局所的で、ns ラップ方式でも syntax-case と同等に衛生展開可能。
+
+#### 2) `and`
+
+`and` は `if` ネストへの展開で実現でき、各オペランドを `(ns caller-ns ...)` で包むことで展開元評価文脈を保持できる。短絡評価制御は macro-ns 側で構築できるため、衛生・評価順とも整合する。
+
+#### 3) `or`
+
+`or` は中間結果を保持する一時束縛が必要で、`let` ネスト中に同名 `tmp` が複数現れる。syntax-case では fresh identifier 生成で自然に処理できるが、jalo ns ラップ方式では「同一 macro-ns 内の同名 tmp」衝突回避規則が必要である。現時点では Open Question (Q3) として管理する。
+
+#### 4) `quasiquote`
+
+jalo の `quasiquote` はデータ構築専用であるため、Clojure の syntax-quote 的な識別子修飾には使わない。したがって衛生は quasiquote 自体ではなく ns ラップ規約で担保する。これは syntax-case の「識別子側で解決」ではなく「式側で解決」の設計差だが、目的（衛生）達成は可能である。
+
+### §10.3 差分まとめ
+
+- **同等にできる領域**: `let*`/`and` のような制御構造展開、展開元参照と挿入参照の分離、問題 (1)(2) の基本対処。
+- **追加設計が要る領域**: `or` の fresh 名称戦略、macro-to-macro 合成時の ns 継承、anaphoric パターン。
+- **設計思想の差**: syntax-case は識別子オブジェクト中心、jalo は JSON AST を維持したまま ns で意味論を与える。
+
+以上より、ns ラップ方式は jalo 制約下での現実解として妥当だが、実装前に Q2/Q3 の規則確定が必要である。
 
 ## §11 実装ロードマップ
 
@@ -498,22 +576,41 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
 
 **Q1/Q2/Q3/Q6（軍師統合時に追記）**:
 
-- Q1: anaphoric パターンの取扱い（unhygienic フラグ / inject-into-caller-ns / 不採用）
-- Q2: マクロ間連携時の ns 継承規則（定義時 ns / 展開時 ns / caller-ns）
-- Q3: ネスト let 内の同名 tmp の ns 生成戦略（`or` 展開の実装問題）
-- Q6: グローバル ns 定義 form の構文（`def-ns` 仮称の最終決定）
+- **Q1: anaphoric パターンの取扱い（R1）**  
+  選択肢は 3 つある。  
+  (a) `:unhygienic true` の明示フラグで限定許可する。  
+  (b) `(inject-into-caller-ns ...)` の専用 form を導入し、呼び出し側注入を明示する。  
+  (c) Phase 2 では不採用とし、完全衛生を優先する。  
+  推奨は (a) もしくは (c)。暗黙注入は禁止。
+
+- **Q2: マクロ間連携時の ns 継承規則（R2）**  
+  連携時にどの ns を継承するかは、定義時 ns / 展開時 ns / caller-ns の三案がある。  
+  軍師推奨（subtask_434a）は **定義時 ns 優先**（Bawden 流 lexical 指向）であり、必要に応じて caller-ns を明示引数で渡す案である。
+
+- **Q3: 動的 ns 生成の許容範囲（R3）**  
+  実行時に任意 ns を生成可能にすると再現性・検証性が低下する。  
+  Phase 2 では「宣言済み `def-ns` のみ許可」「動的生成は feature flag 下で実験」の二段運用を検討し、正式可否は実装段階で確定する。  
+  併せて `or` 展開時の一時束縛衝突回避規則（fresh suffix / nesting ns 分割）をここで確定する。
+
+- **Q6: グローバル ns 定義 form の構文（D8）**  
+  仮称 `def-ns` を採るか、既存 `def` と統合して `(def :ns ...)` 形式にするか未確定。  
+  ADR では `def-ns` をデフォルト案として保持し、SPEC 反映時に最終決定する。
 
 ## §13 参考文献
 
-> **[subtask_434c 担当]** Bawden / Kohlbecker / Clinger & Rees / Dybvig 等の一次資料 + 公式 docs を access date 付きで追記予定。
-
-以下は足軽 A が確認した引用（本 draft に使用済）:
-
 | 処理系/規格 | リソース | URL | アクセス日 |
 |---|---|---|---|
+| Lisp マクロ古典 | Bawden & Rees (1988), *Syntactic Closures* (LFP'88, DOI) | https://dl.acm.org/doi/10.1145/62678.62687 | 2026-05-19 |
+| Lisp マクロ古典 | Bawden & Rees (1988) MIT DSpace record (AIM-1049) | https://dspace.mit.edu/handle/1721.1/6036 | 2026-05-19 |
+| Lisp マクロ古典 | Kohlbecker et al. (1986), *Hygienic Macro Expansion* (LFP'86, DOI) | https://dl.acm.org/doi/10.1145/319838.319859 | 2026-05-19 |
+| Lisp マクロ古典 | Clinger & Rees (1991), *Macros That Work* (POPL'91, DOI) | https://dl.acm.org/doi/10.1145/99583.99607 | 2026-05-19 |
+| Lisp マクロ古典 | Clinger & Rees (1991) full-text PDF (UO Scholars' Bank) | https://scholarsbank.uoregon.edu/server/api/core/bitstreams/12fed7c3-fd49-4ae8-97e4-6bbb156aaba6/content | 2026-05-19 |
+| Lisp マクロ古典 | Dybvig et al. (1992), *Syntactic Abstraction in Scheme* | https://link.springer.com/article/10.1007/BF01806308 | 2026-05-19 |
+| Lisp マクロ古典 | Bawden (1999), *Quasiquotation in Lisp* | https://3e8.org/pub/scheme/doc/Quasiquotation%20in%20Lisp%20(Bawden).pdf | 2026-05-19 |
 | Common Lisp | HyperSpec — Function `GENSYM` | https://www.lispworks.com/documentation/HyperSpec/Body/f_gensym.htm | 2026-05-19 |
 | Clojure | Macros（defmacro 公式仕様） | https://clojure.org/reference/macros | 2026-05-19 |
 | Clojure | Reader — Syntax-quote（auto-gensym） | https://clojure.org/reference/reader#syntax-quote | 2026-05-19 |
+| Clojure | Special Forms 公式仕様 | https://clojure.org/reference/special_forms | 2026-05-19 |
 | Scheme | R7RS small §4.3 Macros（PDF） | https://small.r7rs.org/attachment/r7rs.pdf | 2026-05-19 |
 | Scheme | R6RS §12 Syntax-case | https://www.r6rs.org/final/html/r6rs/r6rs-Z-H-16.html | 2026-05-19 |
 | jalo | SPEC §4.2 let\* / §4.5 and・or / §5.2 quasiquote | （本リポジトリ docs/SPEC.md） | 2026-05-19 |
