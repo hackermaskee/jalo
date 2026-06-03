@@ -18,6 +18,8 @@ class HofBuiltinsTest {
 
     private org.bsdclub.furuta.jalo.value.JaloValue parse(String input) { return parser.parseStandard(lexer.tokenize(input)); }
 
+    private org.bsdclub.furuta.jalo.value.JaloValue eval(String input) { return evaluator.eval(parse(input)); }
+
     @Test
     void mapFilterReduce() {
         assertThat(evaluator.eval(parse("(map (fn [x] (+ x 1i)) (quasiquote (array 1i 2i 3i)))")).toString())
@@ -73,5 +75,30 @@ class HofBuiltinsTest {
         assertThat(evaluator.eval(parse("(every? (fn [x] (< x 10i)) (quasiquote (array 1i 2i 3i)))"))).isEqualTo(JaloBool.TRUE);
         assertThat(evaluator.eval(parse("(some (fn [x] (if (> x 2i) x #false)) (quasiquote (array 1i 2i 3i)))")))
             .hasToString(new JaloInt(3).toString());
+    }
+
+    @Test
+    void trampolineReturnsImmediateValue() {
+        assertThat(eval("(trampoline (fn [] 42i))")).isEqualTo(new JaloInt(42));
+    }
+
+    @Test
+    void trampolineSelfTailRecursionWithoutStackOverflow() {
+        eval("(def count-down (fn [n] (if (= n 0i) 0i (fn [] (count-down (- n 1i))))))");
+
+        assertThat(eval("(trampoline count-down 1000000i)")).isEqualTo(new JaloInt(0));
+    }
+
+    @Test
+    void trampolineMutualTailRecursionWithoutStackOverflow() {
+        eval("(def is-even (fn [n] (if (= n 0i) #true (fn [] (is-odd (- n 1i))))))");
+        eval("(def is-odd (fn [n] (if (= n 0i) #false (fn [] (is-even (- n 1i))))))");
+
+        assertThat(eval("(trampoline is-even 1000000i)")).isEqualTo(JaloBool.TRUE);
+    }
+
+    @Test
+    void trampolinePassesInitialArgumentsOnly() {
+        assertThat(eval("(trampoline (fn [x] x) 42i)")).isEqualTo(new JaloInt(42));
     }
 }

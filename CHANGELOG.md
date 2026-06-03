@@ -1,9 +1,13 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.7.0] - 2026-06-03
 
 ### Added
+- feat: stdlib `trampoline` function — Clojure-compatible `(trampoline f & args)` for
+  stack-safe deep mutual/self tail recursion (cmd_438)
+- test: self-tail-recursion (1M bounces) and mutual-tail-recursion (1M bounces) tests
+  for `trampoline` in HofBuiltinsTest.java
 - docs: ADR-002 (DECISION_MACRO_AND_NAMESPACE.md) 用語整合・例 S 式化 (cmd_439)
   - マクロ例を JSON 配列表記から jalo 標準構文 (S 式) に統一
   - データを指す「JSON」を「JSON モデル」に統一
