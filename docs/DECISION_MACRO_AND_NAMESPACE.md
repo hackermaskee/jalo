@@ -46,17 +46,22 @@ V1 から V2 への主要変更点:
 
 `swap!` マクロが一時変数 `tmp` を挿入し、展開元コードにも `tmp` が存在する場合:
 
+以下のマクロ定義は、マクロが返す JSON モデル (jalo AST) を S 式で表記する。
+
 ```jalo
 ; マクロ定義 (仮想的な defmacro)
 (defmacro swap! [a b]
-  ["let", [["tmp", a]], ["begin", ["set!", "a", "b"], ["set!", "b", "tmp"]]])
+  (let [tmp a]
+    (begin
+      (set! a b)
+      (set! b tmp))))
 
 ; 展開元コード (tmp を使っている)
 (let [tmp 99]
   (swap! x tmp))  ; => tmp が "展開元の tmp=99" ではなくマクロの tmp に捕捉される危険
 ```
 
-jalo AST (JSON) では束縛はシンボル名（文字列）のみで識別されるため、
+jalo AST (JSON モデル) では束縛はシンボル名（文字列）のみで識別されるため、
 マクロ挿入の `"tmp"` と展開元の `"tmp"` を区別する機構が必要となる。
 
 #### 問題 (2) の jalo 具体例
@@ -66,7 +71,7 @@ jalo AST (JSON) では束縛はシンボル名（文字列）のみで識別さ�
 ```jalo
 ; マクロ定義: cons を使ってリスト構築する展開形を返す
 (defmacro my-cons [head tail]
-  ["cons", head, tail])
+  (cons head tail))
 
 ; 展開元: cons をローカルで再定義
 (let [cons (fn [a b] "overridden")]
@@ -131,9 +136,15 @@ Clojure の `defmacro` は syntax-quote (`` ` ``) で名前空間修飾シンボ
 
 殿のご見解 (2026-05-19) により、既存処理系の手法の多くが jalo には適用不可であることが確定した。
 
-### §4.1 AST モデルの制約 (JSON、シンボル構造非保持、名前=文字列のみ)
+### §4.1 AST モデルの制約 (JSON モデル、シンボル構造非保持、名前=文字列のみ)
 
-jalo の AST は homoiconic JSON である。シンボルはリッチなオブジェクト（Scheme の syntax object 等）ではなく、**純粋な文字列**として表現される。
+> **用語規範**: 本 ADR では「JSON モデル」をデータ構造を指す意で用いる。
+> jalo の AST は JSON モデルであり、その表記には標準構文 (S 式) を用いる。
+> 例として `(let [tmp 1] tmp)` は JSON モデルとしては配列構造で、
+> JSON 表記でシリアライズすれば `["let", [["tmp", 1]], "tmp"]` となる。
+> 本 ADR 以降、特に断らない限り「JSON」とはこの JSON モデルを指す。
+
+jalo の AST は homoiconic な JSON モデルである。シンボルはリッチなオブジェクト（Scheme の syntax object 等）ではなく、**純粋な文字列**として表現される。
 
 ```
 ; Scheme では識別子はスコープ情報を保持するオブジェクト
@@ -141,14 +152,16 @@ jalo の AST は homoiconic JSON である。シンボルはリッチなオブ�
 ; → stx は syntax object、識別子ごとにスコープが付属
 
 ; jalo では識別子は単なる文字列
-["let", [["tmp", 1]], "tmp"]
-; "tmp" は文字列であり、定義場所・スコープ情報を持たない
+(let [tmp 1] tmp)
+; ↑ S 式表記。JSON モデルとしては配列構造で、tmp は文字列であり、
+;   定義場所・スコープ情報を持たない。
+;   (JSON 表記でシリアライズすれば ["let", [["tmp", 1]], "tmp"] となる)
 ```
 
 このため:
 - Scheme の `rename(x)` 方式（トークン単位で識別子をリネームし、マクロ作成者 ns 由来として識別）は **採用不可**
 - 名前=文字列のみゆえ、同一文字列の識別子は区別されない
-- マクロ展開後も AST は通常の JSON 配列/文字列であり続ける
+- マクロ展開後も AST は通常の JSON モデル (配列・文字列等) であり続ける
 
 ### §4.2 read 時二段解決不可
 
@@ -292,21 +305,22 @@ ISSUES.md I-02（名前空間）は本 ADR が正式に引き受け、設計対�
 
 ### §6.4 D4 — defmacro ns 引数構造
 
-> 「`defmacro` (仮) は JSON 引数 + JSON 返却に加え、
+> 「`defmacro` (仮) は JSON モデル引数 + JSON モデル返却に加え、
 > 展開元の lexical scope における **名前空間も引数として** 渡される構造」 — 殿のご見解 D4
 
 `defmacro` の関数シグネチャ（仮設計）:
 
 ```jalo
 ; defmacro は 3 種類の情報を受け取る:
-; 1. マクロ引数 (通常の JSON 引数)
+; 1. マクロ引数 (通常の JSON モデル引数)
 ; 2. 展開元の名前空間 (caller-ns)
 ; 3. マクロ自身が定義された名前空間 (macro-ns) — 暗黙的に利用可能
 
 (defmacro my-macro [caller-ns arg1 arg2]
   ; caller-ns を使って arg1/arg2 の名前解決コンテキストを明示
   (ns macro-ns
-    ["let", [["tmp", (ns caller-ns arg1)]], (ns caller-ns arg2)]))
+    (let [tmp (ns caller-ns arg1)]
+      (ns caller-ns arg2))))
 ```
 
 `caller-ns` は展開呼び出し場所の lexical scope における名前空間を表す。
@@ -336,7 +350,8 @@ ISSUES.md I-02（名前空間）は本 ADR が正式に引き受け、設計対�
 ; → caller-ns で定義された x を参照
 ```
 
-jalo AST（JSON）では `(ns <ns> <expr>)` は配列 `["ns", <ns>, <expr>]` として表現される。
+jalo AST (JSON モデル) では `(ns <ns> <expr>)` は配列構造として表現される
+(JSON 表記でシリアライズすれば `["ns", <ns>, <expr>]`)。
 homoiconic 性は維持される。
 
 `ns` は新たなスペシャルフォームとして SPEC に追加予定（Phase 2 実装段階）。
@@ -438,7 +453,8 @@ D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 
 - `<namespace>` は文字列（ns 識別子）。Phase 2 では `def-ns` で登録済の ns 名のみ許容（§7.2 参照）。
 - `<expr>` は任意の jalo 式。
-- jalo AST (JSON) 表現: `["ns", <namespace>, <expr>]`。homoiconic 性は維持される。
+- jalo AST (JSON モデル) 表現: 配列構造 `(ns <namespace> <expr>)`
+  (JSON 表記でのシリアライズ例: `["ns", <namespace>, <expr>]`)。homoiconic 性は維持される。
 
 **意味論（操作的）**:
 
@@ -492,9 +508,9 @@ eval(ρ, (def-ns N [bs])) ⇒ eval-bindings(switch-ns(ρ', N), bs)
 ```jalo
 (def-ns "macro-lib")
 (ns "macro-lib"
-  (def cons (fn [a b] ["cons", a, b])))
-(ns "macro-lib" cons)
-; → 上記で定義した cons を取得
+  (def my-cons (fn [a b] (cons a b))))
+(ns "macro-lib" my-cons)
+; → 上記で定義した my-cons を取得
 ```
 
 ### §7.3 `defmacro` 構造詳細
@@ -507,7 +523,7 @@ eval(ρ, (def-ns N [bs])) ⇒ eval-bindings(switch-ns(ρ', N), bs)
 
 - `<name>` はマクロ名（文字列）。
 - `<param>...` はマクロ引数。`caller-ns` は暗黙的に第 0 引数として渡される（D4）。明示記述は不要。
-- `<body>` は jalo 式。評価結果は AST (JSON) であり、マクロ展開後のコードとして使われる。
+- `<body>` は jalo 式。評価結果は AST (JSON モデル) であり、マクロ展開後のコードとして使われる。
 
 **展開時の流れ**:
 
@@ -525,10 +541,10 @@ eval(ρ, (def-ns N [bs])) ⇒ eval-bindings(switch-ns(ρ', N), bs)
 (defmacro my-swap! [a b]
   (let [macro-ns "macro-lib"]
     (ns macro-ns
-      ["let", [["tmp", (ns caller-ns a)]],
-       ["begin",
-        ["set!", (ns caller-ns a), (ns caller-ns b)],
-        ["set!", (ns caller-ns b), "tmp"]]])))
+      (let [tmp (ns caller-ns a)]
+        (begin
+          (set! (ns caller-ns a) (ns caller-ns b))
+          (set! (ns caller-ns b) tmp))))))
 ```
 
 **`macro-ns` の決定規則**:
@@ -598,7 +614,7 @@ W(form, macro-ns, caller-ns) =
 | (ii) 衛生問題 (2) 解決 | ○: 定義環境参照を保持するが高度ケースは制約が強い | ○: syntax-quote で ns 修飾可能だが quasiquote 規約依存 | ◎: closure 環境で自由変数参照先を保持できる | ◎: `identifier` 同一性比較で参照捕捉を抑制できる | ◎: 挿入参照を `macro-ns` で解決し caller 捕捉を分離する |
 | (iii) 表現力 | △: パターン中心で手続き的変換が難しい | ◎: Lisp マクロとして高い変換自由度がある | ○: 衛生を保ちつつ実用変換可能だが実装負荷が高い | ◎: 手続き的変換 + 衛生で高表現力 | ○: 目的の衛生要件は満たすが ns 運用規則の設計が必要 |
 | (iv) 実装難度 | △: 仕様は単純だが jalo AST 制約に合わせた実装が別途必要 | ○: 実装は現実的だが Clojure 流 quasiquote 非採用で再設計要 | ×: jalo には syntax object 不在で直接実装が困難 | ×: identifier object 基盤がなく直接導入不可 | ○: `ns` SF とラップ規約の追加で到達可能 |
-| (v) jalo 制約整合 | ×: シンボル構造前提が強く JSON 文字列 AST と齟齬 | △: 一部思想は流用できるが quasiquote 拡張が不適合 | ×: トークン単位リネーム前提が JSON 文字列モデルと不整合 | ×: syntax object 前提で現行 Reader/AST と不整合 | ◎: JSON→JSON 変換を維持したまま衛生要件を扱える |
+| (v) jalo 制約整合 | ×: シンボル構造前提が強く JSON モデル文字列 AST と齟齬 | △: 一部思想は流用できるが quasiquote 拡張が不適合 | ×: トークン単位リネーム前提が JSON モデル文字列モデルと不整合 | ×: syntax object 前提で現行 Reader/AST と不整合 | ◎: JSON モデル→JSON モデル変換を維持したまま衛生要件を扱える |
 | (vi) Phase 2 互換 | △: 基盤改造量次第で遅延しうる | ○: Phase 2 で導入しやすいが仕様差分整理が必要 | △: 直接導入は難しく概念転写が前提 | △: 直接導入不可、概念参照のみ実用 | ◎: namespace 設計と同時に Phase 2 へ接続できる |
 
 ## §9 論理検証（Validation）
@@ -619,7 +635,7 @@ jalo の `(ns <macro-ns> ...)` / `(ns <caller-ns> ...)` ラップ規約（§7.4�
 | 粒度 | token（シンボル）単位 | scope（式範囲）単位 |
 | 識別子表現 | syntax object（環境情報つき） | 文字列（解決文脈は包む式で表現） |
 | 衛生情報の所在 | 識別子オブジェクト内部 | `(ns ...)` SF の構造 |
-| jalo 制約整合性 | × 不可（名前=文字列のみ） | ◎ 可（JSON 配列で表現） |
+| jalo 制約整合性 | × 不可（名前=文字列のみ） | ◎ 可（JSON モデル (配列構造) で表現） |
 
 jalo は §4.1 で示したとおり名前=文字列のみであり token 単位の rename 操作ができない。したがって scope 単位への昇格は **jalo 制約下での唯一の合理的選択肢**に近い設計である。
 
@@ -744,7 +760,7 @@ Dybvig et al. (1992) の `syntax-case`（§5.4）は識別子オブジェクト�
 | 衛生問題 (2) 解決 | ◎ 自動 | ◎ ラップ規約 |
 | 識別子単位の細粒度操作 | ◎ 可能 | △ scope 単位ゆえ困難 |
 | 高度なメタ構文（パターン変数等） | ◎ 可能 | △ 別途設計要 |
-| 実装難度（jalo 制約下） | × 識別子オブジェクト不在で不可 | ◎ JSON 配列で表現可能 |
+| 実装難度（jalo 制約下） | × 識別子オブジェクト不在で不可 | ◎ JSON モデル (配列構造) で表現可能 |
 | de-special-form 候補 (let*/and/or) の表現力 | ◎ 完全 | ○ `or` の fresh 名称戦略確定が必要 |
 
 **結論**: 「衛生問題 (1)(2) の回避」という目的に限れば、ns ラップ方式は syntax-case と **機能等価**を狙える。識別子単位の細粒度操作や高度なメタ構文（パターン変数等）では syntax-case の一般性が高いが、jalo の Phase 2 マクロ機構の主目的（de-special-form と一般的なマクロサポート）には十分。
@@ -794,7 +810,7 @@ jalo の `quasiquote` はデータ構築専用であるため、Clojure の synt
 
 - **同等にできる領域**: `let*`/`and` のような制御構造展開、展開元参照と挿入参照の分離、問題 (1)(2) の基本対処。
 - **追加設計が要る領域**: `or` の fresh 名称戦略、macro-to-macro 合成時の ns 継承、anaphoric パターン。
-- **設計思想の差**: syntax-case は識別子オブジェクト中心、jalo は JSON AST を維持したまま ns で意味論を与える。
+- **設計思想の差**: syntax-case は識別子オブジェクト中心、jalo は JSON モデル AST を維持したまま ns で意味論を与える。
 
 以上より、ns ラップ方式は jalo 制約下での現実解として妥当だが、実装前に Q2/Q3 の規則確定が必要である。
 
@@ -933,3 +949,12 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
 | jalo | SPEC §4.2 let\* / §4.5 and・or / §5.2 quasiquote | （本リポジトリ docs/SPEC.md） | 2026-05-19 |
 | jalo | DECISION_MACRO.md V1 (Superseded) | （本リポジトリ docs/DECISION_MACRO.md） | 2026-05-19 |
 | jalo | DECISION_TCO.md（ADR-001） | （本リポジトリ docs/DECISION_TCO.md） | 2026-05-19 |
+
+## §14 変更履歴
+
+### cmd_439 (2026-06-03)
+
+- マクロ例を JSON 表記から jalo 標準構文 (S 式) に統一
+- 用語「JSON」をデータ指す文脈では「JSON モデル」に統一
+- §4.1 冒頭に用語規範の注記を追加
+- 論理構造・結論・Open Questions は変更なし
