@@ -55,7 +55,7 @@
 
 ## I-08: 末尾呼び出し最適化 (TCO)
 
-**状態**: ADR 文書整備完了 (cmd_433)。最終決定待ち。詳細は `docs/DECISION_TCO.md` (ADR-001) 参照。  
+**状態**: Phase 1 確定: Option F (処理系 TCO なし) + stdlib trampoline 緩和策 (cmd_438)。Phase 2 での処理系 TCO 実装方式選定は継続 Open。詳細は DECISION_TCO.md 参照。  
 **内容**: 7 オプション (A: explicit recur / B: implicit TCO+trampoline / C: self-tail only / D: CPS / E: delimited continuation / F: no TCO / G: stdlib trampoline) を評価中。暫定推奨案は Option A (Clojure 方式 explicit recur) または Option F (現状維持)。代数的エフェクト handler との相互作用が最優先評価軸。確定まで深い再帰はスタックオーバーフローを起こす可能性があり、`reduce`/`map` 等の高階関数で代替すること。cmd_433 にて DECISION_TCO.md を全面改訂 — コールスタック図 (case i/ii)・evalHandle Java フレームレイアウト・JVM 言語 TCO 調査 (Kotlin/Scala/Kawa/Frege/ABCL)・Option G 追加・§11 参考資料 (16 URL) を追記。
 
 ---

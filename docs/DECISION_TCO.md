@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Phase 1 確定 / Phase 2 再評価予定 — Phase 1 は Option F（TCO なし）で継続。TCO の実装方式は Phase 2 着手時に改めて確定する（下記「推奨」節を参照）。
+Phase 1 確定 / Phase 2 再評価予定 — Phase 1 は Option F（処理系 TCO なし）+ stdlib trampoline 緩和策で確定。深い再帰は trampoline 経由でスタック消費なしに実現できる。TCO の処理系実装方式は Phase 2 着手時に改めて確定する（下記「推奨」節を参照）。
 
 ## 背景と TCO の本質
 
@@ -341,7 +341,7 @@ Erlang では BEAM 仮想マシンが適切な末尾呼び出しを自動的に�
 
 ## 推奨
 
-**推奨: Phase 2 で TCO を実装する。Phase 1 は当面 Option F (TCO なし / recur 強制) で継続する。Phase 2 着手時に改めて Option A/B/C/D/E の中から実装方式を確定する。**
+**推奨: Phase 1: Option F (処理系 TCO なし) + stdlib `trampoline` 緩和策を採用する。深い自己/相互末尾再帰は `trampoline` 経由でスタック消費なしに実現できる。Phase 2 着手時に Option A/B/C/D/E の中から処理系 TCO 実装方式を改めて確定する。**
 
 Phase 1 における jalo のミッション（VISION.md §1）——対話的探索と確実な自動化を可能にする合成可能な JSON ネイティブ計算——に対して、Option F（TCO なし）は以下の理由で適切である:
 
@@ -377,6 +377,12 @@ Phase 2 の TCO 実装 (Option A〜E のいずれか) は上記三条件の前�
 - **Q6: マクロとの相互作用** — マクロ × TCO の相互作用は考慮外（2026-05-17 amendment_1 確定）。TCO はマクロ展開後の AST に対してのみ適用する。詳細は DECISION_MACRO.md §推奨節参照。
 - **Q7: Phase 1 のスコープ** — Option F（Phase 1 では TCO なし）は Lisp 方言としての jalo のポジショニングを考慮して許容されるか。
 - **Q10: Option F の緩和策** — Option F が選択された場合、どのような文書化と人間工学的な緩和策が必要か（推奨スタック深度制限・反復イディオムガイドなど）。
+  **→ cmd_438 回答**: stdlib `(trampoline f & args)` (Clojure 互換シグネチャ) を
+  Phase 1 で実装し、以下を提供する:
+  (1) 末尾で `fn` を返す関数を書けば相互/自己末尾再帰がスタック消費なしに実現できる
+  (2) 実装は Java 側 while ループによるバウンス (JVM スタック非消費)
+  (3) SPEC.md stdlib 表に `trampoline` を追記し、推奨イディオム例を STDLIB_STATUS.md に記録
+  これにより Q10 は解決済みとする。
 
 ## 参考文献
 
@@ -392,3 +398,10 @@ Phase 2 の TCO 実装 (Option A〜E のいずれか) は上記三条件の前�
 | Erlang | Reference Manual — Functions | https://www.erlang.org/doc/reference_manual/functions.html | 2026-05-12 |
 | OCaml | Manual — Effect Handlers (OCaml 5) | https://ocaml.org/manual/effects.html | 2026-05-12 |
 | Haskell | Haskell Wiki — Tail recursion | https://wiki.haskell.org/Tail_recursion | 2026-05-12 |
+
+### amendment_2 (cmd_438, 2026-06-03)
+
+- 推奨を「Option F + stdlib trampoline」に改訂 (処理系 TCO は Phase 2 以降)
+- Q10 (Option F の緩和策) を `trampoline` 実装で解決済みに更新
+- ステータス節に trampoline 緩和策の言及を追加
+- 実装詳細は STDLIB_STATUS.md、テストは EvaluatorTest.java 参照
