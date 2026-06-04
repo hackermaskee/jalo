@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- docs: ADR-002 §5.5「名前空間機構の言語横断比較」章追加 (cmd_440) — 10 言語以上の一次資料引用付き比較
+
 ## [0.7.0] - 2026-06-03
 
 ### Added

@@ -238,6 +238,411 @@ Dybvig et al. (1992) は `syntax-case` の理論と実装を提示し、`syntax-
 
 本 ADR に対しては、「高度なマクロは衛生とトレードオフではない」ことを示す先行事例として効く。jalo は syntax-case そのものは採れないが、ns ラップで参照解決文脈を保存すれば、de-special-form を進めつつ衛生要求を満たす設計余地がある。
 
+## §5.5 名前空間機構の言語横断比較（名前衝突回避の観点）
+
+本節では、各言語が「名前の衝突を回避する機構」としてどのような仕組みを持つかを横断比較し、
+jalo の ns 設計の言語設計史的位置づけを明確にする。§3.2 の比較表（マクロ衛生対策軸）とは
+独立した章であり、名前空間機構そのものを扱う。
+
+### §5.5.1 比較表
+
+以下の観点で各言語を比較する:
+- (a) 機構名と単位
+- (b) 名前解決規則（qualified/unqualified, import/use 等）
+- (c) 衝突回避の主たる手段
+- (d) マクロ衛生との関係（マクロがある言語のみ）
+
+| 言語 | (a) 機構名と単位 | (b) 名前解決規則 | (c) 衝突回避の主たる手段 | (d) マクロ衛生との関係 |
+|---|---|---|---|---|
+| Common Lisp | パッケージ (package) — シンボル表 | `pkg:symbol`（外部）/ `pkg::symbol`（内部）/ `*package*` コンテキスト | `shadow` / `shadowing-import` / `use-package` で制御 | Lisp2 が関数 ns を分離し問題 (2) を部分緩和。`gensym` で問題 (1) を手動回避 |
+| Scheme (R7RS) | ライブラリ (library) — `define-library` 単位 | `import` で明示導入、非導入シンボルは不可視 | `import` の `only` / `except` / `rename` / `prefix` 修飾 | `syntax-rules` が識別子を自動リネームして衛生を保証 |
+| Racket | モジュール (module) — ファイル単位 | `require` / `provide` で制御。修飾アクセス可 | `only-in` / `prefix-in` / `except-in` / `rename-in` | 衛生マクロ（`syntax-rules` / `syntax-parse`）とモジュールが統合 |
+| Clojure | 名前空間 (namespace) — Var・クラスマッピング | `ns/sym` 修飾アクセス / `require` / `refer` / `import` | `ns/sym` 修飾で一意化。実行時動的操作が可能 | syntax-quote（`` ` ``）が ns 修飾シンボルを生成し問題 (2) を解決 |
+| Java | パッケージ + モジュール (JPMS) — コンパイル単位 | 完全修飾名 `pkg.Class` / `import` でエイリアス | 逆ドメイン命名規則 + モジュール `exports` 制御 | マクロ機構なし（アノテーション処理器は別系統） |
+| Python | モジュール — `__dict__` 名前空間 | `module.name` 修飾 / `from module import name` | モジュール境界による分離。`__all__` で公開制御 | マクロ機構なし |
+| Rust | モジュール (`mod`) + クレート (crate) | パス `crate::mod::item` / `use` でエイリアス | `pub` 可視性制御 + パスによる一意指定 | `macro_rules!` はスコープ指向。手続きマクロは別クレート分離 |
+| C++ | 名前空間 (`namespace`) + モジュール（C++20） | `ns::name` 修飾 / `using` 宣言・ディレクティブ / ADL | 匿名名前空間でリンケージ制限 / `using namespace` の局所化 | `#define` マクロは名前空間外、衛生機構なし |
+| Haskell | モジュール (module) — ファイル単位 | `qualified` インポートで `M.name` 修飾 / `as` でエイリアス | `hiding` / `qualified` / `as` で衝突回避。曖昧な参照はコンパイルエラー | Template Haskell がモジュール境界を尊重した衛生マクロを提供 |
+| JavaScript (ES Module) | モジュール — スクリプトファイル単位のスコープ | `import { name } from 'mod'` / `import * as ns from 'mod'` | モジュールスコープ分離 / `as` エイリアス / 名前空間オブジェクト | マクロ機構なし（TC39 Macro Proposal は Stage 1） |
+| OCaml | モジュール (structure / functor) — `struct...end` | `Module.name` 修飾 / `open M` でスコープ展開 | `open` の局所化 / 型システムによる構造的区別 / ファンクタで抽象化 | ppx rewriter はモジュール外。第一級モジュールは値として操作可能 |
+
+### §5.5.2 言語別個別解説
+
+#### Common Lisp
+
+**1. 機構名と単位の説明**
+
+Common Lisp の名前衝突回避の基本機構は **パッケージ (package)** である。パッケージはシンボル名（文字列）からシンボルオブジェクトへのマッピングであり、シンボルはパッケージに **intern** される。
+
+> "A package establishes a mapping from names to symbols."  
+> — Common Lisp HyperSpec, §11.1 Package Concepts,  
+> https://www.lispworks.com/documentation/HyperSpec/Body/11_aa.htm (accessed 2026-06-04)
+
+**2. 名前解決規則**
+
+- 外部シンボル: `package:symbol`（1 コロン）— 外部から参照可能なシンボル
+- 内部シンボル: `package::symbol`（2 コロン）— パッケージ内部シンボルへの強制アクセス
+- 現在パッケージ: `*package*` 変数の値が参照先を決定する
+
+**3. 衝突回避の主たる手段**
+
+`shadow` / `shadowing-import` で同名シンボルの優先順位を制御する。`use-package` で別パッケージのシンボルをインポートするが、衝突時はコンパイルエラーとなる。
+
+**4. マクロ衛生との関係**
+
+Common Lisp は **Lisp2**（関数名前空間と変数名前空間が独立）であり、変数 `cons` の再定義が関数呼び出し `(cons ...)` に影響しにくいため、衛生問題 (2) が部分的に緩和される（§3.2 参照）。衛生問題 (1) は `gensym` による手動回避に依存する。
+
+**一次資料**: [Common Lisp HyperSpec (CLHS) — §11 Packages](https://www.lispworks.com/documentation/HyperSpec/Body/c_packag.htm) (accessed 2026-06-04)
+
+---
+
+#### Scheme (R7RS)
+
+**1. 機構名と単位の説明**
+
+R7RS では **ライブラリ (library)** が名前空間の単位である。`define-library` 形式でライブラリを定義し、`export` で外部公開、`import` で他ライブラリの名前を導入する。
+
+**2. 名前解決規則**
+
+明示的な `import` で導入した名前のみが可視。修飾アクセス構文は標準仕様に含まれないが、`rename` や `prefix` を用いた選択的インポートが可能。
+
+**3. 衝突回避の主たる手段**
+
+`import` の `only`、`except`、`rename`、`prefix` 形式で衝突を明示的に制御する。
+
+**4. マクロ衛生との関係**
+
+`syntax-rules` が識別子を自動リネームすることで完全な衛生を保証する（§5.1-§5.2 参照）。ライブラリ境界がマクロ定義環境を確立し、衛生問題 (1)(2) の両方を解決する。
+
+> "Scheme is a statically scoped programming language. Each use of a macro is expanded into a syntactic form whose free variables are interpreted relative to the environment in which the macro was defined."  
+> — Revised⁷ Report on the Algorithmic Language Scheme (R7RS) §4.3 Macros,  
+> https://small.r7rs.org/attachment/r7rs.pdf (accessed 2026-06-04)
+
+**一次資料**: [Revised⁷ Report on the Algorithmic Language Scheme (R7RS), §5.6 Libraries](https://small.r7rs.org/attachment/r7rs.pdf) (accessed 2026-06-04)
+
+---
+
+#### Racket
+
+**1. 機構名と単位の説明**
+
+Racket の名前空間機構は **モジュール (module)** であり、通常はファイル単位で対応する。`#lang` 宣言がモジュールの言語環境を確立する。
+
+**2. 名前解決規則**
+
+`require` でインポート、`provide` でエクスポートを制御する。以下の細粒度修飾子が利用可能:
+- `(require (only-in m x))` — 特定シンボルのみインポート
+- `(require (prefix-in pfx: m))` — プレフィックス付きインポート
+- `(require (except-in m y))` — 特定シンボルを除くインポート
+- `(require (rename-in m [old new]))` — リネームしてインポート
+
+**3. 衝突回避の主たる手段**
+
+`require` の修飾子（`only-in` / `prefix-in` / `except-in` / `rename-in`）によって衝突を細粒度で制御する。Racket は `dynamic-require` で実行時インポートも可能（第一級モジュール的特性）。
+
+**4. マクロ衛生との関係**
+
+Racket の `syntax-rules` / `syntax-parse` は衛生マクロをネイティブサポートし、モジュール境界と統合されている。マクロ定義時のモジュール環境が参照解決先となる（Clinger & Rees (1991) 原則の実装、§5.3 参照）。
+
+**一次資料**: [Racket Reference — Modules](https://docs.racket-lang.org/reference/modules.html) (accessed 2026-06-04, HTTP 403 応答につきページ本文確認は制限あり)
+
+---
+
+#### Clojure
+
+**1. 機構名と単位の説明**
+
+Clojure の名前空間は **namespace** であり、シンボルから Var およびクラスへのマッピングである。
+
+> "Namespaces are mappings from simple (unqualified) symbols to Vars and/or Classes."  
+> — Clojure official documentation, Namespaces,  
+> https://clojure.org/reference/namespaces (accessed 2026-06-04)
+
+**2. 名前解決規則**
+
+修飾アクセス `namespace/symbol` で一意に参照する。`require`（ライブラリ読み込み）、`refer`（シンボル直接導入）、`import`（Java クラス導入）で名前空間を制御する。
+
+**3. 衝突回避の主たる手段**
+
+`ns/sym` の修飾形式で一意化する。名前空間は実行時に動的に作成・変更可能であり、REPL での対話的開発を支える。
+
+> "Namespaces are also dynamic, they can be created, removed and modified at runtime, at the Repl etc."  
+> — Clojure official documentation, Namespaces,  
+> https://clojure.org/reference/namespaces (accessed 2026-06-04)
+
+**4. マクロ衛生との関係**
+
+syntax-quote（`` ` ``）はシンボルを名前空間修飾形式に自動変換し、衛生問題 (2) を解決する（§3.2 参照）。`auto-gensym`（`x#`）が衛生問題 (1) を解決する。
+
+**一次資料**: [Clojure Reference — Namespaces](https://clojure.org/reference/namespaces) (accessed 2026-06-04)
+
+---
+
+#### Java
+
+**1. 機構名と単位の説明**
+
+Java はパッケージ (**package**) と、Java 9 以降の **モジュール（JPMS: Java Platform Module System）** の 2 層構造を持つ。パッケージがクラス名の名前空間を提供し、モジュールがパッケージ間の可視性を制御する。
+
+**2. 名前解決規則**
+
+完全修飾名 `pkg.subpkg.ClassName` で一意に識別する。`import` 宣言でコンパイル単位内のエイリアスを設定する。
+
+> "Every class and interface has a fully qualified name that uniquely identifies the class within all packages."  
+> — Java Language Specification §7, Java SE 21,  
+> https://docs.oracle.com/javase/specs/jls/se21/html/jls-7.html (accessed 2026-06-04)
+
+**3. 衝突回避の主たる手段**
+
+逆ドメイン命名規則（`com.example.myapp`）でグローバル一意性を実現する。JPMS の `exports` / `requires` でモジュール間可視性を制御する。同名 `import` はコンパイルエラー。
+
+**4. マクロ衛生との関係**
+
+Java はマクロ機構を持たない（アノテーション処理器は別系統）。
+
+**一次資料**: [Java Language Specification §7 Packages and Modules (Java SE 21)](https://docs.oracle.com/javase/specs/jls/se21/html/jls-7.html) (accessed 2026-06-04)
+
+---
+
+#### Python
+
+**1. 機構名と単位の説明**
+
+Python の名前空間単位は **モジュール** であり、各モジュールは `__dict__` を通じた独立した名前空間を持つ。
+
+**2. 名前解決規則**
+
+`import module` で参照し `module.name` で修飾アクセスするか、`from module import name` で非修飾アクセスを有効化する。
+
+> "Python code in one module gains access to the code in another module by the process of importing it."  
+> — Python Language Reference — The import system,  
+> https://docs.python.org/3/reference/import.html (accessed 2026-06-04)
+
+**3. 衝突回避の主たる手段**
+
+モジュール境界による分離が基本。`__all__` で `from module import *` 時の公開シンボルを制御する。パッケージ（ディレクトリ）でドット区切りの階層名を形成する（例: `email.mime.text`）。
+
+**4. マクロ衛生との関係**
+
+Python はマクロ機構を持たない。
+
+**一次資料**: [Python Language Reference — The import system](https://docs.python.org/3/reference/import.html) (accessed 2026-06-04)
+
+---
+
+#### Rust
+
+**1. 機構名と単位の説明**
+
+Rust の名前空間機構の基本単位は **モジュール (`mod`)** であり、クレート (crate) が最上位のコンパイル単位となる。
+
+**2. 名前解決規則**
+
+パスベースの名前解決: `crate::module::item`。`use` 宣言でエイリアスを設定する。モジュールとファイルシステムが対応する（`mod foo` → `foo.rs` または `foo/mod.rs`）。
+
+> "It is an error to define multiple items with the same name in the same namespace within a module."  
+> — The Rust Reference — Modules,  
+> https://doc.rust-lang.org/reference/items/modules.html (accessed 2026-06-04)
+
+**3. 衝突回避の主たる手段**
+
+`pub` 可視性制御で外部公開を明示し、パスによる一意指定で衝突を回避する。同一モジュール内の同名定義はコンパイルエラー。
+
+**4. マクロ衛生との関係**
+
+宣言マクロ (`macro_rules!`) はスコープ指向（定義場所のモジュールスコープに従う）。手続きマクロ (proc macro) は異なるクレートに分離して定義する規則があり、モジュール境界がマクロの文脈を形成する。
+
+**一次資料**: [The Rust Reference — Modules](https://doc.rust-lang.org/reference/items/modules.html) (accessed 2026-06-04)
+
+---
+
+#### C++
+
+**1. 機構名と単位の説明**
+
+C++ の名前衝突回避の基本機構は **名前空間 (`namespace`)** であり、ISO C++20 以降は **モジュール (`module`)** も導入されている。
+
+**2. 名前解決規則**
+
+修飾アクセス `namespace::name` で一意に参照する。`using` 宣言（個別名の導入）と `using namespace` ディレクティブ（全体の導入）の 2 段階がある。ADL（Argument-Dependent Lookup）が非修飾名解決を補完する。
+
+**3. 衝突回避の主たる手段**
+
+匿名名前空間（`namespace { ... }`）でリンケージを制限し、翻訳単位内部専用の名前を定義する。`using namespace` の局所スコープ化で名前空間汚染を抑制する。
+
+**4. マクロ衛生との関係**
+
+C++ のプリプロセッサマクロ（`#define`）は名前空間の外側に位置し、衛生機構を持たない。名前空間はプリプロセッサよりも後段で解決されるため、マクロと名前空間の衝突回避は設計上の課題として残る。
+
+**一次資料**: [cppreference.com — Namespaces (ISO C++23 準拠)](https://en.cppreference.com/w/cpp/language/namespace) (accessed 2026-06-04, HTTP 403 応答につきページ本文確認は制限あり)
+
+---
+
+#### Haskell
+
+**1. 機構名と単位の説明**
+
+Haskell の名前空間機構は **モジュール (module)** である。モジュールはエクスポートリストで公開シンボルを制御する。
+
+> "A module begins with a header containing the `module` keyword, module name, optional export list, followed by import and top-level declarations."  
+> — Haskell 2010 Report §5 Modules,  
+> https://www.haskell.org/onlinereport/haskell2010/haskellch5.html (accessed 2026-06-04)
+
+**2. 名前解決規則**
+
+`qualified` インポートで `M.name` 形式の修飾アクセスのみ有効化する。`as` でエイリアスを設定する（例: `import VeryLongModuleName as C`）。
+
+> "The `qualified` keyword restricts imports to qualified names only. Without it, both the qualified and unqualified name of the entity is brought into scope."  
+> — Haskell 2010 Report §5 Modules,  
+> https://www.haskell.org/onlinereport/haskell2010/haskellch5.html (accessed 2026-06-04)
+
+**3. 衝突回避の主たる手段**
+
+`hiding` でインポート除外。`qualified` インポートで必ず修飾アクセスを強制する。曖昧な参照はコンパイルエラー。
+
+> "If a module contains a bound occurrence of a name, such as f or A.f, it must be possible unambiguously to resolve which entity is thereby referred to."  
+> — Haskell 2010 Report §5 Modules,  
+> https://www.haskell.org/onlinereport/haskell2010/haskellch5.html (accessed 2026-06-04)
+
+**4. マクロ衛生との関係**
+
+Template Haskell（TH）はモジュール境界を尊重した衛生マクロを提供する。GHC 9.x 以降の splice スコープがモジュールと統合されている。
+
+**一次資料**: [Haskell 2010 Report §5 Modules](https://www.haskell.org/onlinereport/haskell2010/haskellch5.html) (accessed 2026-06-04)
+
+---
+
+#### JavaScript (ES Module)
+
+**1. 機構名と単位の説明**
+
+JavaScript (ES2015+) の **ES Module** はスクリプトファイルを単位とした名前空間機構である。各モジュールは独立したスコープを持ち、`export` で明示的に公開する。Module Environment Records（ECMAScript §9.1.1.5）として仕様化されている。
+
+**2. 名前解決規則**
+
+- `import { name } from 'module'` — 名前付きインポート
+- `import * as ns from 'module'` — 名前空間オブジェクトとしてインポート
+- `import { x as localName } from 'module'` — エイリアスつきインポート
+
+**3. 衝突回避の主たる手段**
+
+モジュールスコープによる分離が基本。`as` エイリアスで衝突を回避する。名前空間オブジェクト（`import * as ns`）で修飾アクセスを強制できる。
+
+**4. マクロ衛生との関係**
+
+ES Module はマクロ機構を持たない（TC39 Macro Proposal は Stage 1 段階）。
+
+**一次資料**: [ECMA-262 — ECMAScript Language Specification §16 Modules](https://tc39.es/ecma262/#sec-modules) (accessed 2026-06-04)
+
+---
+
+#### OCaml
+
+**1. 機構名と単位の説明**
+
+OCaml の名前空間機構は **モジュール (module)** であり、`struct ... end` で構造体 (structure) を定義する。モジュールは値・型・例外・サブモジュールのコレクションである。
+
+**2. 名前解決規則**
+
+ドット記法 `Module.name` で修飾アクセスする。`open M` で修飾なしのアクセスを有効化するが、シャドウイングによる衝突リスクがある。
+
+> "open simply provides short names for the components of the opened structure, without defining any components of the current structure."  
+> — OCaml Manual — Modules,  
+> https://ocaml.org/manual/modules.html (accessed 2026-06-04)
+
+**3. 衝突回避の主たる手段**
+
+`open` の局所化（`let open M in ...`）で名前空間汚染を制限する。型システムによる構造的型一致がモジュール境界を補強する。**ファンクタ (functor)** がモジュールをパラメータとして受け取ることで、抽象化されたモジュール合成を実現する。
+
+**4. マクロ衛生との関係**
+
+ppx プリプロセッサ (ppx rewriter) はモジュール境界の外側で動作するが、生成コードはモジュールスコープに従う。OCaml は **第一級モジュール**（モジュールを値として扱う）をサポートしており、名前空間そのものを値として操作できる点でユニークである。
+
+**一次資料**: [OCaml Manual — Modules](https://ocaml.org/manual/modules.html) (accessed 2026-06-04)
+
+---
+
+### §5.5.3 軸の整理
+
+#### 軸 1: Lisp1（関数と変数が同じ名前空間）vs Lisp2（別名前空間）
+
+| 区分 | 言語 |
+|---|---|
+| **Lisp2**（関数と変数の名前空間が独立） | Common Lisp |
+| **Lisp1**（関数と変数が同一名前空間） | Scheme / Racket / Clojure / jalo |
+| **非 Lisp**（この軸は適用外） | Java / Python / Rust / C++ / Haskell / JavaScript / OCaml |
+
+Lisp2 の Common Lisp では `(cons ...)` のような関数呼び出しが変数 `cons` の再定義に影響されにくいため、マクロ衛生問題 (2) が部分的に緩和される（§3.2 参照）。jalo は Lisp1 であり、問題 (2) がより深刻となることが本比較表からも確認できる。
+
+#### 軸 2: import 方式 vs qualified 名参照のみ vs 両者並立
+
+| 方式 | 言語 |
+|---|---|
+| **両者並立**（import + 修飾名の両方を利用） | Common Lisp / Scheme / Racket / Clojure / Java / Python / Rust / Haskell / OCaml |
+| **修飾名を重視**（`qualified` 強制が可能） | Haskell（`qualified import` で非修飾を禁止可）/ OCaml（`let open` で局所化） |
+| **import 必須**（モジュールスコープのみ） | JavaScript (ES Module) |
+
+#### 軸 3: static（コンパイル時解決）vs dynamic（実行時解決可能）
+
+| 区分 | 言語 |
+|---|---|
+| **静的**（コンパイル時に名前解決が確定） | Java / Rust / Haskell / C++ / OCaml |
+| **主に静的、部分的に動的** | Python（実行時 `importlib` 操作可）/ JavaScript（`import()` 動的インポート） |
+| **動的**（実行時の名前空間変更が可能） | Common Lisp / Scheme / Racket（`dynamic-require`）/ **Clojure**（名前空間の実行時 create/remove/modify） |
+
+Clojure は特に動的性が高く、実行時に名前空間の作成・変更・削除が可能である。
+
+#### 軸 4: 名前空間の「第一級性」（名前空間自体を値として扱えるか）
+
+| 区分 | 言語 |
+|---|---|
+| **第一級モジュール**（値として操作可能） | OCaml（first-class module）/ Racket（`dynamic-require` で実行時解決） |
+| **実行時操作可能**（第一級ではないが実行時に変更可） | Clojure（名前空間を実行時に create/remove/modify）/ Common Lisp（`find-package` 等） |
+| **第一級性なし**（モジュール = コンパイル単位のみ） | Java / Rust / C++ / Haskell / Python / JavaScript |
+
+### §5.5.4 jalo の ns 機構の位置づけ
+
+#### 1. jalo が最も近い言語（どの言語の何に近いか）
+
+jalo の `ns` スペシャルフォームは、**Clojure の名前空間機構**に最も近い位置づけにある:
+
+- Lisp1（関数と変数が同一名前空間）— Clojure と同じ
+- 名前空間を明示的なフォーム（`ns` / `def-ns`）で宣言する設計 — Clojure の `ns` マクロに対応
+- 名前空間は識別子（文字列）で指定する — Clojure のシンボル名に対応
+- マクロ展開においてマクロ定義 ns と呼び出し ns を分離する — Clojure の syntax-quote に対応
+
+一方、Racket のモジュールシステム（衛生マクロとの統合、モジュール境界によるマクロ定義環境の確立）とも思想的に近い。
+
+#### 2. jalo が独自に選択した点（他言語とどう異なるか）
+
+| 観点 | 他言語の標準的アプローチ | jalo の選択 |
+|---|---|---|
+| 名前空間の単位 | ファイル / ライブラリ単位（Racket, Haskell, Java 等） | **式の範囲 (scope) 単位** — `(ns <ns> <expr>)` |
+| 識別子表現 | シンボルオブジェクト / クラスオブジェクト | **文字列のみ**（§4.1 の制約） |
+| 名前空間指定の場所 | ファイル先頭での宣言が主流 | **式レベルで任意に切り替え可能** |
+| マクロ衛生の実現手段 | 識別子オブジェクトへの環境情報付与（Scheme / Racket） | **`(ns ...)` ラップで解決文脈を構造で表現** |
+
+jalo の最も独自な点は、名前空間の切り替えを「ファイル・ライブラリ単位」ではなく「**式の範囲 (scope) 単位**」で行うことである。これは §4.1 で示した「識別子 = 文字列のみ」という制約に起因し、Bawden のトークン単位リネームが不可能な代替として scope 単位への昇格を選択したものである（§9.1 参照）。
+
+#### 3. Lisp1/Lisp2 軸での jalo の位置
+
+jalo は **Lisp1** である（変数名前空間と関数名前空間が統一）。この点が §3.2 で述べたマクロ衛生問題 (2) の深刻さを高め、ns 分離による解決を必須とする根拠の一つとなっている。
+
+Common Lisp（Lisp2）は関数名前空間を変数名前空間から分離することで問題 (2) を部分緩和するが、jalo はこの緩和機構を持たないため、`(ns macro-ns ...)` / `(ns caller-ns ...)` ラップによる明示的な文脈分離が唯一の体系的解法となる。
+
+#### 4. §6 D2-D5 の設計方針（名前空間分離・ns スペシャルフォーム）と本比較の接続
+
+本節の横断比較を踏まえると、§6 D2-D5 の設計方針は以下のように言語設計史的な文脈に位置づけられる:
+
+| §6 設計方針 | 言語設計史的対応 |
+|---|---|
+| **D2** — 名前空間分離による (1)(2) 統一解決 | Clojure の syntax-quote ns 修飾 + Bawden explicit renaming を scope 単位に昇格 |
+| **D3** — マクロと ns の同時設計 | Racket のモジュール統合衛生マクロと同じ設計思想 |
+| **D4** — `defmacro` へ ns を引数として渡す | Bawden (1988) の `make-syntactic-closure(env, ids, expr)` の jalo 版解釈 |
+| **D5** — `ns` スペシャルフォーム | Clojure の `in-ns` / `ns` を式レベルに一般化した設計 |
+
+jalo の ns 機構は、Lisp の名前空間設計史において「シンボルオブジェクトを持たない Lisp1 処理系が衛生マクロを実現するための構造的代替解」として位置づけられる独自設計である。
+
 ## §6 殿提案の設計方針（D1-D8）
 
 殿のご見解 (2026-05-19) による設計指針を 8 subsection に展開する。
@@ -958,3 +1363,11 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
 - 用語「JSON」をデータ指す文脈では「JSON モデル」に統一
 - §4.1 冒頭に用語規範の注記を追加
 - 論理構造・結論・Open Questions は変更なし
+
+### cmd_440 (2026-06-04)
+
+- §5.5「名前空間機構の言語横断比較」章を新規追加
+- 比較対象: Common Lisp / Scheme / Racket / Clojure / Java / Python / Rust / C++ / Haskell / JavaScript (ES Module) / OCaml 他
+- 各言語の機構名・名前解決規則・衝突回避手段・マクロ衛生との関係を一次資料引用付きで記載
+- jalo の ns 機構の言語設計史的位置づけを §5.5.4 に整理
+- 既存章 (§1〜§10) の論理・結論・Open Questions は変更なし
