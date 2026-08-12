@@ -4,7 +4,7 @@
 
 **Status: Proposed**
 
-殿によるレビュー完了後に **Accepted** へ移行し、V1 (`docs/DECISION_MACRO.md`) を **Superseded** 化する。
+Atsushi Furuta (furuta@furuta.bsdclub.org) によるレビュー完了後に **Accepted** へ移行し、V1 (`docs/DECISION_MACRO.md`) を **Superseded** 化する。
 V1 は Option A/C 絞込までの議論記録として保存する（§2 参照）。
 
 ## §2 Supersedes
@@ -13,10 +13,10 @@ V1 は Option A/C 絞込までの議論記録として保存する（§2 参照�
 
 - **V1**: `docs/DECISION_MACRO.md` — ADR-002: jalo マクロ機構設計（2026-05-19 merge 済）
 
-**移行理由 (殿のご見解 2026-05-19)**:
+**移行理由 (Atsushi Furuta の見解 2026-05-19)**:
 
 V1 は Phase 2 マクロ候補を Option A（syntax-rules）と Option C（Clojure defmacro）に絞り込んだが、
-衛生問題への対処を「Phase 2 内部の実装詳細」としてカプセル化していた。殿のご見解により、
+衛生問題への対処を「Phase 2 内部の実装詳細」としてカプセル化していた。Atsushi Furuta の見解により、
 衛生問題を「表面化させ名前空間分離で根本解決を図る」方向に大幅仕切り直しを行う。
 同時に namespace 機構（ns スペシャルフォーム、グローバル名前空間定義 form）を本 ADR で統合設計する。
 
@@ -34,7 +34,7 @@ V1 から V2 への主要変更点:
 
 ### §3.1 衛生問題 (1)(2) の定義
 
-殿のご見解 (2026-05-19) に基づき、jalo のマクロ衛生問題を以下の 2 類型に整理する:
+Atsushi Furuta の見解 (2026-05-19) に基づき、jalo のマクロ衛生問題を以下の 2 類型に整理する:
 
 > **(1) マクロ展開器が挿入した束縛が、展開元の参照を捕捉する**
 > — マクロ局所変数が展開元スコープを汚染するケース
@@ -82,7 +82,7 @@ jalo では名前=文字列のみのため、展開元の `cons` とマクロ作
 
 ### §3.2 既存処理系の対策比較表
 
-殿のご見解 (2026-05-19) による整理 (各セルに一次資料引用を付与):
+Atsushi Furuta の見解 (2026-05-19) による整理 (各セルに一次資料引用を付与):
 
 | 処理系 | 衛生問題 (1) への対策 | 衛生問題 (2) への対策 |
 |---|---|---|
@@ -128,13 +128,13 @@ Clojure の `defmacro` は syntax-quote (`` ` ``) で名前空間修飾シンボ
 
 **Lisp1 / Lisp2 と問題 (2) の深刻度差異:**
 
-殿のご見解: Lisp2（Common Lisp）では変数名前空間と関数名前空間が分離しているため、
+Atsushi Furuta の見解: Lisp2（Common Lisp）では変数名前空間と関数名前空間が分離しているため、
 `(cons ...)` のような関数呼び出しは変数 `cons` の再定義に影響されにくい（問題 (2) が緩和される）。
 一方 jalo は Lisp1（変数名前空間と関数名前空間が統一）であり、問題 (2) がより深刻となる。
 
 ## §4 jalo 固有の制約
 
-殿のご見解 (2026-05-19) により、既存処理系の手法の多くが jalo には適用不可であることが確定した。
+Atsushi Furuta の見解 (2026-05-19) により、既存処理系の手法の多くが jalo には適用不可であることが確定した。
 
 ### §4.1 AST モデルの制約 (JSON モデル、シンボル構造非保持、名前=文字列のみ)
 
@@ -179,7 +179,7 @@ jalo の Reader は以下のように単純化されている:
 ### §4.3 quasiquote データ構築専用（Clojure 流不採用、match パターンとの双対性）
 
 jalo の `quasiquote` は **JSON モデル値の構築** と **`match` 左辺パターン** に使うスペシャルフォームであり、
-この設計が殿の設計の核をなす（SPEC §5.1-§5.2）。
+この設計が Atsushi Furuta の設計の核をなす（SPEC §5.1-§5.2）。
 
 Clojure では syntax-quote (`` ` ``) を使ってマクロ本体でシンボルを名前空間修飾する:
 
@@ -189,7 +189,7 @@ Clojure では syntax-quote (`` ` ``) を使ってマクロ本体でシンボル
   `(clojure.core/cons ~x nil))  ; clojure.core/cons は修飾済
 ```
 
-殿のご裁可により、**この方式は jalo では不採用**:
+Atsushi Furuta の裁可により、**この方式は jalo では不採用**:
 - jalo の `quasiquote` はデータ構築専用であり、マクロ展開中のシンボル修飾には使わない
 - `match` パターンとの双対性（左辺パターン ↔ 右辺構築）が設計の核であり、
   マクロ用途で `quasiquote` の意味を拡張することは双対性を破壊する
@@ -643,14 +643,14 @@ Common Lisp（Lisp2）は関数名前空間を変数名前空間から分離す�
 
 jalo の ns 機構は、Lisp の名前空間設計史において「シンボルオブジェクトを持たない Lisp1 処理系が衛生マクロを実現するための構造的代替解」として位置づけられる独自設計である。
 
-## §6 殿提案の設計方針（D1-D8）
+## §6 Atsushi Furuta 提案の設計方針（D1-D8）
 
-殿のご見解 (2026-05-19) による設計指針を 8 subsection に展開する。
+Atsushi Furuta の見解 (2026-05-19) による設計指針を 8 subsection に展開する。
 これらは本 ADR の「決定」の核であり、Phase 2 実装の基本方針となる。
 
 ### §6.1 D1 — 展開タイミング（run/compile、read 不採用確定）
 
-> 「マクロ展開は run 時 または compile 時。**read 時には実行しない**」 — 殿のご見解 D1
+> 「マクロ展開は run 時 または compile 時。**read 時には実行しない**」 — Atsushi Furuta の見解 D1
 
 マクロの展開タイミングは以下の選択肢から確定する:
 
@@ -662,8 +662,8 @@ read 不採用の理由: §4.2 で示したとおり、jalo の Reader はシン
 read 時にマクロを展開してもスコープ情報が欠落する。また read 時展開は `#jq(...)` 等の
 reader macro とは別の概念であり（後者は SPEC §5.6 で継続）、混同を避ける。
 
-compile 時 vs run 時の最終選択は Q4 として残置するが、軍師推奨は compile-time
-（SyntaxChecker 直前の static expansion pass）である（V1 軍師推奨を継承）。
+compile 時 vs run 時の最終選択は Q4 として残置するが、レビューエージェント推奨は compile-time
+（SyntaxChecker 直前の static expansion pass）である（V1 レビューエージェント推奨を継承）。
 
 既存の `#jq(...)` reader macro（cmd_423 実装済）はマクロ機構とは独立に存続し、
 本 ADR の決定により廃止されるものではない。
@@ -671,7 +671,7 @@ compile 時 vs run 時の最終選択は Q4 として残置するが、軍師推
 ### §6.2 D2 — 名前空間分離による (1)(2) 統一解決
 
 > 「衛生問題 (1)(2) を **名前空間分離** で統一的に解決。
-> マクロが挿入する束縛/参照は、展開元とは別の名前空間で名前解決する」 — 殿のご見解 D2
+> マクロが挿入する束縛/参照は、展開元とは別の名前空間で名前解決する」 — Atsushi Furuta の見解 D2
 
 本方針が本 ADR の中核決定事項である。
 
@@ -684,7 +684,7 @@ compile 時 vs run 時の最終選択は Q4 として残置するが、軍師推
 **問題 (2) の解決**: マクロが参照する識別子（例: `cons`）は `macro-ns` で解決される。
 展開元で再定義された `cons` は `caller-ns` に属し、別の束縛として扱われる。
 
-軍師の予備評価（subtask_434a strategy review）では、本方針は
+レビューエージェントの予備評価（subtask_434a strategy review）では、本方針は
 Bawden explicit renaming（1988）をトークン単位からスコープ単位に昇格した形として
 論理的に成立すると評価している（§9 で詳細検証予定）。
 
@@ -694,7 +694,7 @@ Bawden のトークン単位 `rename(x)` は jalo では実装不可のため、
 
 ### §6.3 D3 — namespace 機構同時設計（Phase 2 設計フェーズ既開始）
 
-> 「namespace 機構はマクロと同時設計。設計フェーズは既に Phase 2 に入っている」 — 殿のご見解 D3
+> 「namespace 機構はマクロと同時設計。設計フェーズは既に Phase 2 に入っている」 — Atsushi Furuta の見解 D3
 
 マクロ機構と namespace 機構は独立して設計できないため、本 ADR で統合設計する。
 Phase 構造の解釈:
@@ -711,7 +711,7 @@ ISSUES.md I-02（名前空間）は本 ADR が正式に引き受け、設計対�
 ### §6.4 D4 — defmacro ns 引数構造
 
 > 「`defmacro` (仮) は JSON モデル引数 + JSON モデル返却に加え、
-> 展開元の lexical scope における **名前空間も引数として** 渡される構造」 — 殿のご見解 D4
+> 展開元の lexical scope における **名前空間も引数として** 渡される構造」 — Atsushi Furuta の見解 D4
 
 `defmacro` の関数シグネチャ（仮設計）:
 
@@ -736,7 +736,7 @@ ISSUES.md I-02（名前空間）は本 ADR が正式に引き受け、設計対�
 
 ### §6.5 D5 — ns スペシャルフォーム
 
-> 「ns スペシャルフォーム (仮): `(ns <ns> <expr>)` で `<ns>` 上で `<expr>` の名前解決と評価」 — 殿のご見解 D5
+> 「ns スペシャルフォーム (仮): `(ns <ns> <expr>)` で `<ns>` 上で `<expr>` の名前解決と評価」 — Atsushi Furuta の見解 D5
 
 `ns` スペシャルフォームは名前空間を指定して式を評価する:
 
@@ -765,7 +765,7 @@ homoiconic 性は維持される。
 ### §6.6 D6 — マクロ返却値ラップ規約
 
 > 「マクロ返却値の構造: 全体が `(ns <macro-ns> <form>)`、
-> `<form>` 内の展開元部分式は `(ns <ns> <sub-form>)` で包まれる」 — 殿のご見解 D6
+> `<form>` 内の展開元部分式は `(ns <ns> <sub-form>)` で包まれる」 — Atsushi Furuta の見解 D6
 
 マクロが返却する展開形は必ず以下の構造を持つ:
 
@@ -782,7 +782,7 @@ homoiconic 性は維持される。
     (ns <caller-ns> <caller-arg>)))
 ```
 
-`let*/and/or` 等の de-special-form 候補での適用例（軍師 strategy review より）:
+`let*/and/or` 等の de-special-form 候補での適用例（レビューエージェント strategy review より）:
 
 **`and` の展開形 (概念)**:
 ```jalo
@@ -810,7 +810,7 @@ homoiconic 性は維持される。
 
 ### §6.7 D7 — 責任分担（マクロプログラマ vs 処理系）
 
-> 「マクロプログラマと処理系の責任分担はこれから設計 (Open Question)」 — 殿のご見解 D7
+> 「マクロプログラマと処理系の責任分担はこれから設計 (Open Question)」 — Atsushi Furuta の見解 D7
 
 ns ラップ規約（D6）を正しく適用する責任の所在は現時点で未確定:
 
@@ -822,7 +822,7 @@ ns ラップ規約（D6）を正しく適用する責任の所在は現時点で
 
 ### §6.8 D8 — グローバル ns 定義スペシャルフォーム
 
-> 「グローバル namespace 定義のスペシャルフォームも別途必要」 — 殿のご見解 D8
+> 「グローバル namespace 定義のスペシャルフォームも別途必要」 — Atsushi Furuta の見解 D8
 
 D5 の `ns` スペシャルフォーム（既存 ns での評価）に加え、
 新しい名前空間を定義・登録するためのスペシャルフォームが必要:
@@ -1007,13 +1007,13 @@ W(form, macro-ns, caller-ns) =
 
 **マクロ展開と lexical**:
 
-マクロ展開は lexical な静的処理ゆえ、`ns` SF の境界は展開時に確定する。Phase 1 (tree walker) では SyntaxChecker 直前の static expansion pass で展開を行う（§12 Q4 軍師推奨）。Phase 2 (bytecode compiler) では compile time に展開、bytecode は通常の AST と同じく扱える。
+マクロ展開は lexical な静的処理ゆえ、`ns` SF の境界は展開時に確定する。Phase 1 (tree walker) では SyntaxChecker 直前の static expansion pass で展開を行う（§12 Q4 レビューエージェント推奨）。Phase 2 (bytecode compiler) では compile time に展開、bytecode は通常の AST と同じく扱える。
 
 ## §8 決定要因マトリクス
 
 評価記号: ◎ = 強い適合、○ = 実用適合、△ = 条件付き、× = 不適合
 
-| 評価軸 | V1 Option A (syntax-rules) | V1 Option C (Clojure defmacro+auto-gensym) | Bawden syntactic closures | Dybvig syntax-case | 殿提案 ns 分離 |
+| 評価軸 | V1 Option A (syntax-rules) | V1 Option C (Clojure defmacro+auto-gensym) | Bawden syntactic closures | Dybvig syntax-case | Atsushi Furuta 提案 ns 分離 |
 |---|---|---|---|---|---|
 | (i) 衛生問題 (1) 解決 | ◎: 展開器主導の自動衛生で束縛衝突を防げる | ○: auto-gensym で一時変数衝突を回避できるが規約依存が残る | ◎: 展開器が文脈つきで挿入識別子を扱い衝突を抑制できる | ◎: syntax object と衛生規則で捕捉を体系的に防ぐ | ◎: `macro-ns` へ隔離するため caller 側識別子を汚染しない |
 | (ii) 衛生問題 (2) 解決 | ○: 定義環境参照を保持するが高度ケースは制約が強い | ○: syntax-quote で ns 修飾可能だが quasiquote 規約依存 | ◎: closure 環境で自由変数参照先を保持できる | ◎: `identifier` 同一性比較で参照捕捉を抑制できる | ◎: 挿入参照を `macro-ns` で解決し caller 捕捉を分離する |
@@ -1024,7 +1024,7 @@ W(form, macro-ns, caller-ns) =
 
 ## §9 論理検証（Validation）
 
-殿の核心仮説（2026-05-19）「マクロが挿入する束縛/参照は展開元とは別の名前空間で名前解決すれば、衛生問題 (1)(2) が統一的に解決する」の妥当性を、§5 で参照した古典論文と §7 の設計詳細を踏まえて検証する。
+Atsushi Furuta の核心仮説（2026-05-19）「マクロが挿入する束縛/参照は展開元とは別の名前空間で名前解決すれば、衛生問題 (1)(2) が統一的に解決する」の妥当性を、§5 で参照した古典論文と §7 の設計詳細を踏まえて検証する。
 
 ### §9.1 Bawden explicit renaming との関係（スコープ単位昇格）
 
@@ -1101,9 +1101,9 @@ Clinger & Rees (1991) の "Macros That Work" は「展開後コードの自由�
 
 **Lisp1 制約下での重要性**: §3.2 で述べたとおり、jalo は Lisp1（変数名前空間と関数名前空間が統一）であり、Common Lisp の Lisp2 緩和が使えない。したがって `cons` のような頻出関数名の再定義による問題 (2) は jalo では深刻であり、ns 分離による解決は実装上必須の機構である。
 
-### §9.4 反例候補の検討（軍師の誠実義務）
+### §9.4 反例候補の検討（レビューエージェントの誠実義務）
 
-軍師策略（subtask_434a）で検出した反例候補 3 件を再検討する。
+レビューエージェントの strategy review（subtask_434a）で検出した反例候補 3 件を再検討する。
 
 #### R1 — anaphoric pattern（意図的な不衛生）
 
@@ -1125,7 +1125,7 @@ Clinger & Rees (1991) の "Macros That Work" は「展開後コードの自由�
 - (b) `(inject-into-caller-ns ...)` 専用 form 導入
 - (c) Phase 2 では不採用（衛生優先、Scheme syntax-rules 同様の方針）
 
-軍師推奨: (a) または (c)。暗黙注入は禁止（明示的なオプトインのみ許容）。
+レビューエージェント推奨: (a) または (c)。暗黙注入は禁止（明示的なオプトインのみ許容）。
 
 #### R2 — macro-to-macro 連携時の ns 継承
 
@@ -1138,7 +1138,7 @@ Clinger & Rees (1991) の "Macros That Work" は「展開後コードの自由�
 
 **Bawden lexical 解釈との対応**: Bawden & Rees (1988) の syntactic closure は「マクロ定義環境に従う」を原則とする（§5.1）。これに従えば B 自身の `macro-ns`（候補 1）が自然な選択。
 
-**評価**: 反例というより**設計選択の論点**。軍師推奨は候補 1（定義時 ns 優先、Bawden lexical 指向）。必要に応じて `caller-ns` を明示引数で渡せば候補 2/3 も実現可能。
+**評価**: 反例というより**設計選択の論点**。レビューエージェント推奨は候補 1（定義時 ns 優先、Bawden lexical 指向）。必要に応じて `caller-ns` を明示引数で渡せば候補 2/3 も実現可能。
 
 **Open Question Q2（§12）への落とし込み**: ns 継承規則は Phase 2 実装段階で確定。
 
@@ -1150,7 +1150,7 @@ Clinger & Rees (1991) の "Macros That Work" は「展開後コードの自由�
 
 **評価**: lexical 制約により動的 ns は本来許容しない。ただし `def-ns` 自身は SF として実行されるため、評価時に新 ns が登録される（§7.2）。これは「グローバル ns レジストリへの登録」であり、lexical な参照解決は影響を受けない。
 
-**Open Question Q3（§12）への落とし込み**: 動的 ns 生成の許容範囲。軍師推奨:
+**Open Question Q3（§12）への落とし込み**: 動的 ns 生成の許容範囲。レビューエージェント推奨:
 - Phase 2 では「宣言済 `def-ns` のみ許可」を基本ルール
 - 動的生成は feature flag 下で実験運用
 - 並せて `or` 展開時の同一 macro-ns 内同名 `tmp` 衝突回避規則（fresh suffix / nesting ns 分割）をここで確定
@@ -1172,15 +1172,15 @@ Dybvig et al. (1992) の `syntax-case`（§5.4）は識別子オブジェクト�
 
 **§10 との整合**: §10 比較節で de-special-form 4 例（let\*/and/or/quasiquote）の具体検証を行っているが、本 §9.5 の総括結論はこれと整合する。`or` の fresh 名称戦略（§12 Q3）の確定が Phase 2 実装前の前提条件。
 
-### §9.6 総合判定（軍師結論）
+### §9.6 総合判定（レビューエージェント結論）
 
-殿の核心仮説「名前空間分離による (1)(2) 統一解決」は、本軍師の論理検証の範囲では:
+Atsushi Furuta の核心仮説「名前空間分離による (1)(2) 統一解決」は、本レビューエージェントの論理検証の範囲では:
 
 - **成立**: §9.2 / §9.3 で示したとおり、(1)(2) は ns 分離単一機構で解決される。Bawden explicit renaming（§9.1）の scope 単位昇格として正統な系譜に位置する
 - **反例なし**: R1-R3（§9.4）はいずれも仮説の論理的全否定ではなく、設計選択 / 仕様上の限界 / 実装方針の論点であり、Open Question として §12 に格納可能
 - **表現力**: syntax-case と機能等価（§9.5）、de-special-form 4 候補（§10）で実装可能性確認済
 
-したがって本 ADR は **Proposed → Accepted** への移行を軍師 QC として **PASS** と判定する。最終承認は殿の中間レビューを経て行う。Phase 2 実装段階で残り Open Question Q1-Q3, Q5-Q8 を順次確定する。
+したがって本 ADR は **Proposed → Accepted** への移行をレビューエージェント QC として **PASS** と判定する。最終承認は Atsushi Furuta の中間レビューを経て行う。Phase 2 実装段階で残り Open Question Q1-Q3, Q5-Q8 を順次確定する。
 
 ## §10 比較（Comparison）
 
@@ -1247,9 +1247,9 @@ Phase 2 実装順序（案）:
 
 | スペシャルフォーム | 根拠 | ns ラップ適用可否 |
 |---|---|---|
-| `let*` | SPEC §4.2 でマクロ機構への移行を既予告 | ◎ (確認済 — 軍師 strategy review) |
+| `let*` | SPEC §4.2 でマクロ機構への移行を既予告 | ◎ (確認済 — レビューエージェント strategy review) |
 | `quasiquote` | SPEC §5.2 でマクロ機構への移行を既予告 | ◎ (§4.3 と整合、ただし Phase 2 実装時に具体プロトタイプ要) |
-| `and` | 短絡評価を `if` ネストに展開可能 (SPEC §4.5) | ◎ (確認済 — 軍師 strategy review) |
+| `and` | 短絡評価を `if` ネストに展開可能 (SPEC §4.5) | ◎ (確認済 — レビューエージェント strategy review) |
 | `or` | 短絡評価を `if` ネストに展開可能 (SPEC §4.5) | ○ (ネスト ns 生成戦略の確定が必要 — §12 Open Question) |
 
 **Future 候補 3 件（Phase 2 以降で検討）**:
@@ -1291,12 +1291,12 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
 
 以下の問いは Phase 2 実装前に確定が必要である（または Phase 2 実装段階で確定する）。
 
-**足軽 A (本 subtask) 担当**:
+**実装エージェント A (本 subtask) 担当**:
 
 - **Q4: 展開タイミング compile-time / run-time の最終確定**  
   §6.1 D1 により read 不採用は確定。run 時 vs compile 時の選択が残る。  
-  軍師推奨: compile-time（SyntaxChecker 直前の static expansion pass、V1 Q3 継承）。  
-  Phase 2 実装着手前に殿のご裁可を仰ぐ。
+  レビューエージェント推奨: compile-time（SyntaxChecker 直前の static expansion pass、V1 Q3 継承）。  
+  Phase 2 実装着手前に Atsushi Furuta の裁可を仰ぐ。
 
 - **Q5: 責任分担（マクロプログラマ vs 処理系）の詳細**  
   §6.7 D7 で提示した案 A/B/C（自動ラップ / 手動 / ハイブリッド）のいずれを採るか。  
@@ -1312,7 +1312,7 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
   将来独立機能として再評価する際の条件・タイミング・スコープ。  
   本 ADR のマクロ機構とは独立した別系統として検討する（§4.3 参照）。
 
-**Q1/Q2/Q3/Q6（軍師統合時に追記）**:
+**Q1/Q2/Q3/Q6（レビューエージェント統合時に追記）**:
 
 - **Q1: anaphoric パターンの取扱い（R1）**  
   選択肢は 3 つある。  
@@ -1323,7 +1323,7 @@ I-02（名前空間）の設計を本 ADR が引き受け、以下の段階導�
 
 - **Q2: マクロ間連携時の ns 継承規則（R2）**  
   連携時にどの ns を継承するかは、定義時 ns / 展開時 ns / caller-ns の三案がある。  
-  軍師推奨（subtask_434a）は **定義時 ns 優先**（Bawden 流 lexical 指向）であり、必要に応じて caller-ns を明示引数で渡す案である。
+  レビューエージェント推奨（subtask_434a）は **定義時 ns 優先**（Bawden 流 lexical 指向）であり、必要に応じて caller-ns を明示引数で渡す案である。
 
 - **Q3: 動的 ns 生成の許容範囲（R3）**  
   実行時に任意 ns を生成可能にすると再現性・検証性が低下する。  

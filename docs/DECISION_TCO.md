@@ -113,7 +113,7 @@ jalo のエフェクトハンドラはコールスタック上に動的なフレ
 
 Option A では、`(recur ...)` を使って `handle` フレーム境界を越えることはできない。`recur` は最も近い `loop` または `fn` フレームに限定される。`g` への呼び出しは常にスタックフレームを消費する。
 
-**handler 跨ぎ TCO の優先度については殿のご判断待ちとする（Phase 2 設計時に確定予定）。本 ADR では Open Question として留保する。**
+**handler 跨ぎ TCO の優先度については Atsushi Furuta (furuta@furuta.bsdclub.org) の判断待ちとする（Phase 2 設計時に確定予定）。本 ADR では Open Question として留保する。**
 
 ### ケース (ii) ハンドラ跨ぎ末尾呼出しで TCO と handle が衝突するケース
 
