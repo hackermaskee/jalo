@@ -1,7 +1,7 @@
 # jalo 認証設定記録 (PAT → SSH 移行)
 
 > **実施日**: 2026-05-08  
-> **実施者**: 殿 (手動)  
+> **実施者**: Atsushi Furuta (furuta@furuta.bsdclub.org) (手動)  
 > **結果**: SSH 鍵認証に切替完了。PAT 痕跡なし。多エージェント運用解禁済。
 
 ---
@@ -63,8 +63,8 @@ grep -r "github_pat\|://.*@" .git/config
 
 ## 多エージェント運用上の注意
 
-- **ssh-agent socket の共有**: 家老 pane では `SSH_AUTH_SOCK` が設定済み。足軽 pane からの git push は ssh-agent 共有が必要なため、**push / PR 作成 / merge は家老 pane が代行する**。
-- 足軽は feature branch への commit までを担当。家老が `git push` + `gh pr create` + merge を実施。
+- **ssh-agent socket の共有**: （歴史的記録 — multi-agent-shogun 体制時の運用。2026-08 廃止）当時は統括エージェント pane のみに `SSH_AUTH_SOCK` が設定されていたため、push / PR 作成 / merge を同 pane に集約していた。
+- 現行体制では、エージェントが Atsushi Furuta の指示または承認に基づき `git push` + `gh pr create` を実施する（CONTRIBUTING.md §1 参照）。
 - ssh-agent の pane 間共有設定は別途検討 (ssh_agent 共有 cmd 参照)。
 
 ---

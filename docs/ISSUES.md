@@ -55,8 +55,8 @@
 
 ## I-08: 末尾呼び出し最適化 (TCO)
 
-**状態**: ADR 文書整備完了 (cmd_433)。最終決定待ち。詳細は `docs/DECISION_TCO.md` (ADR-001) 参照。  
-**内容**: 7 オプション (A: explicit recur / B: implicit TCO+trampoline / C: self-tail only / D: CPS / E: delimited continuation / F: no TCO / G: stdlib trampoline) を評価中。暫定推奨案は Option A (Clojure 方式 explicit recur) または Option F (現状維持)。代数的エフェクト handler との相互作用が最優先評価軸。確定まで深い再帰はスタックオーバーフローを起こす可能性があり、`reduce`/`map` 等の高階関数で代替すること。cmd_433 にて DECISION_TCO.md を全面改訂 — コールスタック図 (case i/ii)・evalHandle Java フレームレイアウト・JVM 言語 TCO 調査 (Kotlin/Scala/Kawa/Frege/ABCL)・Option G 追加・§11 参考資料 (16 URL) を追記。
+**状態**: Phase 1 確定: Option F (処理系 TCO なし) + stdlib trampoline 緩和策 (cmd_438)。Phase 2 での処理系 TCO 実装方式選定は継続 Open。詳細は DECISION_TCO.md 参照。  
+**内容**: Phase 1 確定: Option F (処理系 TCO なし) + stdlib `trampoline` 緩和策 (cmd_438)。深い自己/相互末尾再帰は `(trampoline f & args)` 経由でスタック消費なしに実現できる。Phase 2 での処理系 TCO 実装方式 (Option A〜E 候補) 選定は継続 Open。詳細は DECISION_TCO.md 参照。代数的エフェクト handler との相互作用は Phase 2 評価軸。
 
 ---
 
@@ -99,6 +99,6 @@
 ## I-14: マクロ機構未設計
 
 **状態**: 🔄 部分的に確定 (V1 merge 済) — cmd_434 で ADR-002 として再設計予定  
-**内容**: jalo にはまだ `defmacro` 相当のマクロ機構がない。SPEC §5.2 に「第 2 版以降でマクロ機構へ移行する予定」と予告。Phase 2 の実装候補は Option A（syntax-rules）と Option C（Clojure defmacro + syntax-quote + auto-gensym）の 2 案（amendment_1 確定）。Option E はマクロ機構候補から除外（2026-05-17 殿裁可）。衛生性方針: 基本衛生 + Clojure auto-gensym 許容（Q1 解決済）。TCO 独立（Q5 解決済）。展開タイミング（Q3）は殿追加裁可待ち。  
+**内容**: jalo にはまだ `defmacro` 相当のマクロ機構がない。SPEC §5.2 に「第 2 版以降でマクロ機構へ移行する予定」と予告。Phase 2 の実装候補は Option A（syntax-rules）と Option C（Clojure defmacro + syntax-quote + auto-gensym）の 2 案（amendment_1 確定）。Option E はマクロ機構候補から除外（2026-05-17 Atsushi Furuta (furuta@furuta.bsdclub.org) 裁可）。衛生性方針: 基本衛生 + Clojure auto-gensym 許容（Q1 解決済）。TCO 独立（Q5 解決済）。展開タイミング（Q3）は Atsushi Furuta の追加裁可待ち。  
 **pointer**: `docs/DECISION_MACRO.md`（ADR-002）
 > V1 は cmd_425 で確定。cmd_434 (DECISION_MACRO_AND_NAMESPACE.md) で supersede 予定。

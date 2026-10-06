@@ -2,7 +2,7 @@
 
 ## ステータス
 
-Draft / 殿の中間レビュー待ち — Q1-Q6 参照。Phase 2 以降での実装を推奨。当面は `quasiquote` + reader macro `#jq(...)` で代用する（下記「推奨」節を参照）。
+Draft / Atsushi Furuta (furuta@furuta.bsdclub.org) の中間レビュー待ち — Q1-Q6 参照。Phase 2 以降での実装を推奨。当面は `quasiquote` + reader macro `#jq(...)` で代用する（下記「推奨」節を参照）。
 
 ## 背景と問題の定義
 
@@ -10,7 +10,7 @@ jalo は JVM（Java 21）上で動作する純粋関数型の Lisp 方言であ�
 
 現在のプロジェクト状態は ISSUES.md I-14 に記録されている:
 
-> **I-14**: マクロ機構未設計 — 状態: 📋 設計未確定（殿レビュー待ち）。詳細は `docs/DECISION_MACRO.md` 参照。
+> **I-14**: マクロ機構未設計 — 状態: 📋 設計未確定（Atsushi Furuta のレビュー待ち）。詳細は `docs/DECISION_MACRO.md` 参照。
 
 マクロ機構がない現状、以下の制約がある:
 
@@ -236,7 +236,7 @@ Matthew Flatt et al. による研究実装。phase-level で compile-time / run-
 
 ### Option E: Reader macro 拡張中心（`#jq` 一般化、defmacro は最小）
 
-> **[amendment_1 (2026-05-17)] マクロ機構候補から除外**: 殿のご裁可により、Option E は Phase 2 マクロ機構の実装候補から除外された。ただし将来、reader-level の構文拡張として独立した別機能として再検討する余地を残す。現存の `#jq(...)` reader macro (cmd_423 実装済) はマクロ機構とは独立に存続し、本 ADR の決定により廃止されるものではない。
+> **[amendment_1 (2026-05-17)] マクロ機構候補から除外**: Atsushi Furuta の裁可により、Option E は Phase 2 マクロ機構の実装候補から除外された。ただし将来、reader-level の構文拡張として独立した別機能として再検討する余地を残す。現存の `#jq(...)` reader macro (cmd_423 実装済) はマクロ機構とは独立に存続し、本 ADR の決定により廃止されるものではない。
 
 既存 `#jq(...)` を `#<name>(...)` として一般化し、`defreader` で任意の reader macro を登録可能にする。compile-time macro 機構は導入せず、read-time のみで賄う jalo 独自路線。
 
@@ -279,7 +279,7 @@ Matthew Flatt et al. による研究実装。phase-level で compile-time / run-
 
 基本的に衛生マクロを採用する。Clojure 流 `syntax-quote`（`` ` ``）+ auto-gensym（`foo#` 記法）は許容する。完全な非衛生（Common Lisp 流 gensym 手動）は採用しない。
 
-殿のご裁可（2026-05-17 amendment_1）により Q1 は解決済：「基本衛生 + Clojure auto-gensym 許容」。
+Atsushi Furuta の裁可（2026-05-17 amendment_1）により Q1 は解決済：「基本衛生 + Clojure auto-gensym 許容」。
 
 ### Phase 2 候補（D2 確定）
 
@@ -306,11 +306,11 @@ Phase 2 着手時にいずれかを最終選択する。Option B・D は Phase 2
 
 マクロ展開器と TCO の相互作用は本 ADR では考慮外とする。TCO はマクロ展開後の AST に対してのみ適用する。マクロ展開器自体が TCO を意識する必要はない（詳細は DECISION_TCO.md 参照）。
 
-殿のご裁可（2026-05-17 amendment_1）により Q5 は解決済。
+Atsushi Furuta の裁可（2026-05-17 amendment_1）により Q5 は解決済。
 
 ### マクロ展開タイミング（Q3 残置）
 
-殿のご追加裁可待ち（§未解決の問い Q3 参照）。軍師推奨は compile-time（SyntaxChecker 直前の static expansion pass）である。
+Atsushi Furuta の追加裁可待ち（§未解決の問い Q3 参照）。レビューエージェント推奨は compile-time（SyntaxChecker 直前の static expansion pass）である。
 
 ### Phase 1 での現状代用手段（quasiquote + `#jq` reader macro）
 
@@ -351,7 +351,7 @@ Option D（Racket phase + parse）は Phase 2 以降に先送りする。JVM 実
 
 - **Q1: 衛生マクロのみか、非衛生も許すか** ✅ **解決済 (2026-05-17 amendment_1)** — 基本衛生 + Clojure auto-gensym 許容。完全非衛生（Common Lisp 流 gensym 手動）は不採用。
 - **Q2: マクロと effect handler の相互作用** — `defmacro` 本体で `raise`/`handle` を使えるか？マクロ展開中の effect は通常評価と同じ扱いか？compile-time effect handler を別途設けるか？
-- **Q3: マクロ展開タイミング**【殿追加裁可待ち】— read-time / compile-time / runtime のどれを正とするか。Option A-D は compile-time。Phase 1（tree walker）では compile-time が tree-walk-time となる。軍師推奨: compile-time（SyntaxChecker 直前の static expansion pass を新設）。理由: Clojure/Scheme/Racket 標準に整合、Q5 裁可と整合、Phase 1/2 シームレス、TCO 適用が素直。
+- **Q3: マクロ展開タイミング**【Atsushi Furuta の追加裁可待ち】— read-time / compile-time / runtime のどれを正とするか。Option A-D は compile-time。Phase 1（tree walker）では compile-time が tree-walk-time となる。レビューエージェント推奨: compile-time（SyntaxChecker 直前の static expansion pass を新設）。理由: Clojure/Scheme/Racket 標準に整合、Q5 裁可と整合、Phase 1/2 シームレス、TCO 適用が素直。
 - **Q4: hygiene vs 学習コスト** — jq ユーザーはマクロ未経験、Clojure 経験者は `defmacro` に馴染みあり、Scheme 経験者は `syntax-rules` を期待。学習コスト最小化のためどのスタイルを採るか（VISION.md §4 Target Users との整合）。
 - **Q5: macro と TCO の相互作用（DECISION_TCO.md Q6 の具体化）** ✅ **解決済 (2026-05-17 amendment_1)** — TCO との相互作用は考慮外。TCO はマクロ展開後の AST に対してのみ適用する（DECISION_TCO.md 参照）。
 - **Q6: 「第 2 版マクロ機構移行（SPEC §5.2）」の具体的タイミング** — 本 ADR で確定したマクロ機構を実際に実装するのは Phase 2 着手時か、Phase 1 末期の別 cmd か。VISION.md §6「マクロシステム（1.0+）」との整合。

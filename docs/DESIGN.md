@@ -264,7 +264,7 @@ org.bsdclub.furuta.jalo.runtime  ← ランタイム環境
 org.bsdclub.furuta.jalo.stdlib   ← 標準ライブラリ
 ```
 
-**根拠**: `org.bsdclub.furuta` は殿の所有ドメイン (furuta@furuta.bsdclub.org) に基づく
+**根拠**: `org.bsdclub.furuta` は Atsushi Furuta の所有ドメイン (furuta@furuta.bsdclub.org) に基づく
 Java/Maven 標準命名規約 (ドメイン逆順)。`jalo` は本プロジェクトの artifact ID。
 **注記**: 循環依存解消のため `JaloValue` / `JaloInt` / `JaloLong` を `evaluator` から `value` へ移動した (cmd_404 PR-A)。
 
@@ -310,4 +310,4 @@ app/src/test/java/org/bsdclub/furuta/jalo/lexer/LexerTest.java
 - `org.bsdclub.furuta.jalo.lexer.Token` — sealed interface + 21 record subtypes
 - `org.bsdclub.furuta.jalo.lexer.LexerException` — RuntimeException + line/col
 
-> 注記: 静的型推論は将来構想、現状は構文検証ゆえ syntaxcheck 命名を採用 (殿の memo.txt 指摘 5 対応、cmd_404 PR-B)
+> 注記: 静的型推論は将来構想、現状は構文検証ゆえ syntaxcheck 命名を採用 (Atsushi Furuta の memo.txt 指摘 5 対応、cmd_404 PR-B)

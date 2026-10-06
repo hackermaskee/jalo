@@ -57,6 +57,14 @@ public final class HofBuiltins {
             for (int i = 0; i < arr.size(); i++) vals.add(arr.get(i));
             return callFn(args.get(0), vals, env, evaluator);
         });
+        registry.register("trampoline", (args, env) -> {
+            if (args.isEmpty()) throw error("Wrong arity for trampoline");
+            JaloValue result = callFn(args.get(0), args.subList(1, args.size()), env, evaluator);
+            while (result instanceof JaloFunction || result instanceof JaloBuiltinFunction) {
+                result = callFn(result, List.of(), env, evaluator);
+            }
+            return result;
+        });
         registry.register("identity", (args, env) -> {
             requireArity("identity", args, 1);
             return args.get(0);
